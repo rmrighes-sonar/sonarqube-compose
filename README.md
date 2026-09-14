@@ -10,8 +10,8 @@ Local SonarQube stack for demos/testing, run via Docker Compose.
   the default Compose network. Both are only bound to `127.0.0.1`.
 - **`monitoring` profile**: `prometheus` scrapes SonarQube's
   `/api/monitoring/metrics` endpoint (authenticated via a passcode), and
-  `grafana` visualizes it through a pre-provisioned datasource and
-  dashboard (see `grafana/dashboards/sonarqube-overview.json`).
+  `grafana` visualizes it through two pre-provisioned dashboards — see
+  [Dashboards](#dashboards) below.
 - **`share` profile**: `ngrok` tunnels the local SonarQube instance to a
   fixed public hostname, for sharing access outside your machine.
 
@@ -44,6 +44,47 @@ have started).
 | Prometheus | http://localhost:9090        | none (local only)                                         |
 | Grafana    | http://localhost:3000        | `admin` / `GRAFANA_ADMIN_PASSWORD` (from `.env`)          |
 | ngrok      | http://localhost:4040 (inspector) / `NGROK_URL` (public) | n/a |
+
+## Dashboards
+
+Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
+"SonarQube" folder:
+
+- **SonarQube Server Health** (`grafana/dashboards/sonarqube-health.json`) —
+  availability of the Web/Compute Engine/Elasticsearch processes, license
+  usage, Elasticsearch disk health, Compute Engine task throughput/duration,
+  Web API v1/v2 request rate and p95 latency, database query rate/latency,
+  external integration health, and connected SonarLint clients. Backed
+  entirely by the existing `Prometheus` datasource — no extra setup needed
+  beyond the `monitoring` profile.
+
+- **SonarQube Usage — Projects & Portfolios**
+  (`grafana/dashboards/sonarqube-usage.json`) — per-project quality gate
+  status, bugs/vulnerabilities/code smells, coverage, duplication, lines of
+  code, a portfolios overview (if any are configured — requires the
+  Enterprise/Governance edition), recent Compute Engine analyses, and a
+  coverage/duplication/size history chart for a single selected project.
+  This data isn't available via Prometheus, so it's queried directly from
+  SonarQube's Web API using Grafana's **Infinity** datasource plugin
+  (`yesoreyeram-infinity-datasource`, installed automatically via
+  `GF_PLUGINS_PREINSTALL`).
+
+  To populate this dashboard:
+  1. In SonarQube, generate a token: **My Account &gt; Security &gt; Generate
+     Tokens** (or use a dedicated read-only service account). The token's
+     user needs Browse permission on the projects/portfolios you want
+     charted.
+  2. Set `SONARQUBE_API_TOKEN` in `.env` to that token.
+  3. Restart Grafana: `docker compose up -d grafana`.
+
+  Known limitations: the "Projects overview" and "Portfolios overview"
+  tables rely on SonarQube's internal/undocumented `GET
+  /api/measures/search` endpoint (used by the SonarQube UI itself), which
+  could change on a future SonarQube upgrade — if it breaks, the documented
+  `GET /api/measures/component` endpoint (one call per project) is the
+  stable fallback. The "Coverage / duplication / size history" panel only
+  supports a single selected project, not "All" (SonarQube's
+  `search_history` endpoint takes one component at a time).
 
 ## Prerequisites
 
