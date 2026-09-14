@@ -26,6 +26,7 @@
         },
         "includeAll": true,
         "multi": true,
+        "current": { "text": "All", "value": "$__all" },
         "refresh": 1
       },
       {
@@ -48,6 +49,7 @@
         },
         "includeAll": true,
         "multi": true,
+        "current": { "text": "All", "value": "$__all" },
         "refresh": 1
       }
     ]
