@@ -64,7 +64,17 @@
             "maven-multimodule"
           ]
         },
-        "refresh": 1
+        "options": [
+          { "text": "gradle-basic", "value": "gradle-basic" },
+          { "text": "gradle-kotlin-dsl", "value": "gradle-kotlin-dsl" },
+          { "text": "gradle-kotlin-project", "value": "gradle-kotlin-project" },
+          { "text": "gradle-multimodule", "value": "gradle-multimodule" },
+          { "text": "gradle-multimodule-coverage", "value": "gradle-multimodule-coverage" },
+          { "text": "maven-basic", "value": "maven-basic" },
+          { "text": "maven-multilingual", "value": "maven-multilingual" },
+          { "text": "maven-multimodule", "value": "maven-multimodule" }
+        ],
+        "refresh": 0
       },
       {
         "name": "portfolio",
@@ -109,7 +119,11 @@
             "sonar-scanner-maven"
           ]
         },
-        "refresh": 1
+        "options": [
+          { "text": "sonar-scanner-gradle", "value": "sonar-scanner-gradle" },
+          { "text": "sonar-scanner-maven", "value": "sonar-scanner-maven" }
+        ],
+        "refresh": 0
       }
     ]
   },
