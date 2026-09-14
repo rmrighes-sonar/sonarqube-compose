@@ -39,6 +39,12 @@ services:
       nofile:
         soft: 65536
         hard: 65536
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9000/api/system/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
     restart: unless-stopped
 
   prometheus:
@@ -46,7 +52,7 @@ services:
     image: prom/prometheus:latest
     depends_on:
       sonarqube:
-        condition: service_started
+        condition: service_healthy
     secrets:
       - sonar_system_passcode
     volumes:
@@ -54,6 +60,12 @@ services:
       - prometheus_data:/prometheus
     ports:
       - "127.0.0.1:9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
 
   grafana:
@@ -61,7 +73,7 @@ services:
     image: grafana/grafana:latest
     depends_on:
       prometheus:
-        condition: service_started
+        condition: service_healthy
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
@@ -72,6 +84,12 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
 
   ngrok:
@@ -79,7 +97,7 @@ services:
     image: ngrok/ngrok:latest
     depends_on:
       sonarqube:
-        condition: service_started
+        condition: service_healthy
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
     command: ["http", "--url=${NGROK_URL}", "http://sonarqube:9000"]
