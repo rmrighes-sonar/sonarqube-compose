@@ -17,8 +17,8 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/projects/search",
           "url_options": { "method": "GET", "params": [{ "key": "ps", "value": "500" }] },
-          "parser": "simple",
-          "root_selector": "components",
+          "parser": "backend",
+          "root_selector": "$.components",
           "columns": [
             { "selector": "key", "text": "__value", "type": "string" },
             { "selector": "name", "text": "__text", "type": "string" }
@@ -39,8 +39,8 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/views/list",
           "url_options": { "method": "GET" },
-          "parser": "simple",
-          "root_selector": "views",
+          "parser": "backend",
+          "root_selector": "$.views",
           "columns": [
             { "selector": "key", "text": "__value", "type": "string" },
             { "selector": "name", "text": "__text", "type": "string" }
@@ -79,9 +79,12 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/measures/search",
           "url_options": { "method": "GET", "params": [{ "key": "projectKeys", "value": "${project:csv}" }, { "key": "metricKeys", "value": "alert_status" }] },
-          "parser": "uql",
-          "root_selector": "",
-          "uql": "parse-json\n| scope \"measures\"\n| project \"component\", \"QualityGate\"=\"value\""
+          "parser": "backend",
+          "root_selector": "$.measures",
+          "columns": [
+            { "selector": "component", "text": "component", "type": "string" },
+            { "selector": "value", "text": "QualityGate", "type": "string" }
+          ]
         },
         {
           "refId": "B",
@@ -90,9 +93,12 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/measures/search",
           "url_options": { "method": "GET", "params": [{ "key": "projectKeys", "value": "${project:csv}" }, { "key": "metricKeys", "value": "bugs" }] },
-          "parser": "uql",
-          "root_selector": "",
-          "uql": "parse-json\n| scope \"measures\"\n| project \"component\", \"Bugs\"=tonumber(\"value\")"
+          "parser": "backend",
+          "root_selector": "$.measures",
+          "columns": [
+            { "selector": "component", "text": "component", "type": "string" },
+            { "selector": "value", "text": "Bugs", "type": "number" }
+          ]
         },
         {
           "refId": "C",
@@ -101,9 +107,12 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/measures/search",
           "url_options": { "method": "GET", "params": [{ "key": "projectKeys", "value": "${project:csv}" }, { "key": "metricKeys", "value": "vulnerabilities" }] },
-          "parser": "uql",
-          "root_selector": "",
-          "uql": "parse-json\n| scope \"measures\"\n| project \"component\", \"Vulnerabilities\"=tonumber(\"value\")"
+          "parser": "backend",
+          "root_selector": "$.measures",
+          "columns": [
+            { "selector": "component", "text": "component", "type": "string" },
+            { "selector": "value", "text": "Vulnerabilities", "type": "number" }
+          ]
         },
         {
           "refId": "D",
@@ -112,9 +121,12 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/measures/search",
           "url_options": { "method": "GET", "params": [{ "key": "projectKeys", "value": "${project:csv}" }, { "key": "metricKeys", "value": "code_smells" }] },
-          "parser": "uql",
-          "root_selector": "",
-          "uql": "parse-json\n| scope \"measures\"\n| project \"component\", \"CodeSmells\"=tonumber(\"value\")"
+          "parser": "backend",
+          "root_selector": "$.measures",
+          "columns": [
+            { "selector": "component", "text": "component", "type": "string" },
+            { "selector": "value", "text": "CodeSmells", "type": "number" }
+          ]
         },
         {
           "refId": "E",
@@ -123,9 +135,12 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/measures/search",
           "url_options": { "method": "GET", "params": [{ "key": "projectKeys", "value": "${project:csv}" }, { "key": "metricKeys", "value": "coverage" }] },
-          "parser": "uql",
-          "root_selector": "",
-          "uql": "parse-json\n| scope \"measures\"\n| project \"component\", \"Coverage\"=tonumber(\"value\")"
+          "parser": "backend",
+          "root_selector": "$.measures",
+          "columns": [
+            { "selector": "component", "text": "component", "type": "string" },
+            { "selector": "value", "text": "Coverage", "type": "number" }
+          ]
         },
         {
           "refId": "F",
@@ -134,9 +149,12 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/measures/search",
           "url_options": { "method": "GET", "params": [{ "key": "projectKeys", "value": "${project:csv}" }, { "key": "metricKeys", "value": "duplicated_lines_density" }] },
-          "parser": "uql",
-          "root_selector": "",
-          "uql": "parse-json\n| scope \"measures\"\n| project \"component\", \"Duplication\"=tonumber(\"value\")"
+          "parser": "backend",
+          "root_selector": "$.measures",
+          "columns": [
+            { "selector": "component", "text": "component", "type": "string" },
+            { "selector": "value", "text": "Duplication", "type": "number" }
+          ]
         },
         {
           "refId": "G",
@@ -145,9 +163,12 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/measures/search",
           "url_options": { "method": "GET", "params": [{ "key": "projectKeys", "value": "${project:csv}" }, { "key": "metricKeys", "value": "ncloc" }] },
-          "parser": "uql",
-          "root_selector": "",
-          "uql": "parse-json\n| scope \"measures\"\n| project \"component\", \"Ncloc\"=tonumber(\"value\")"
+          "parser": "backend",
+          "root_selector": "$.measures",
+          "columns": [
+            { "selector": "component", "text": "component", "type": "string" },
+            { "selector": "value", "text": "Ncloc", "type": "number" }
+          ]
         },
         {
           "refId": "H",
@@ -156,9 +177,12 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/measures/search",
           "url_options": { "method": "GET", "params": [{ "key": "projectKeys", "value": "${project:csv}" }, { "key": "metricKeys", "value": "security_rating" }] },
-          "parser": "uql",
-          "root_selector": "",
-          "uql": "parse-json\n| scope \"measures\"\n| project \"component\", \"SecurityRating\"=tonumber(\"value\")"
+          "parser": "backend",
+          "root_selector": "$.measures",
+          "columns": [
+            { "selector": "component", "text": "component", "type": "string" },
+            { "selector": "value", "text": "SecurityRating", "type": "number" }
+          ]
         },
         {
           "refId": "I",
@@ -167,9 +191,12 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/measures/search",
           "url_options": { "method": "GET", "params": [{ "key": "projectKeys", "value": "${project:csv}" }, { "key": "metricKeys", "value": "reliability_rating" }] },
-          "parser": "uql",
-          "root_selector": "",
-          "uql": "parse-json\n| scope \"measures\"\n| project \"component\", \"ReliabilityRating\"=tonumber(\"value\")"
+          "parser": "backend",
+          "root_selector": "$.measures",
+          "columns": [
+            { "selector": "component", "text": "component", "type": "string" },
+            { "selector": "value", "text": "ReliabilityRating", "type": "number" }
+          ]
         }
       ]
     },
@@ -268,9 +295,12 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/measures/search",
           "url_options": { "method": "GET", "params": [{ "key": "projectKeys", "value": "${portfolio:csv}" }, { "key": "metricKeys", "value": "alert_status" }] },
-          "parser": "uql",
-          "root_selector": "",
-          "uql": "parse-json\n| scope \"measures\"\n| project \"component\", \"QualityGate\"=\"value\""
+          "parser": "backend",
+          "root_selector": "$.measures",
+          "columns": [
+            { "selector": "component", "text": "component", "type": "string" },
+            { "selector": "value", "text": "QualityGate", "type": "string" }
+          ]
         },
         {
           "refId": "B",
@@ -279,9 +309,12 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/measures/search",
           "url_options": { "method": "GET", "params": [{ "key": "projectKeys", "value": "${portfolio:csv}" }, { "key": "metricKeys", "value": "bugs" }] },
-          "parser": "uql",
-          "root_selector": "",
-          "uql": "parse-json\n| scope \"measures\"\n| project \"component\", \"Bugs\"=tonumber(\"value\")"
+          "parser": "backend",
+          "root_selector": "$.measures",
+          "columns": [
+            { "selector": "component", "text": "component", "type": "string" },
+            { "selector": "value", "text": "Bugs", "type": "number" }
+          ]
         },
         {
           "refId": "C",
@@ -290,9 +323,12 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/measures/search",
           "url_options": { "method": "GET", "params": [{ "key": "projectKeys", "value": "${portfolio:csv}" }, { "key": "metricKeys", "value": "vulnerabilities" }] },
-          "parser": "uql",
-          "root_selector": "",
-          "uql": "parse-json\n| scope \"measures\"\n| project \"component\", \"Vulnerabilities\"=tonumber(\"value\")"
+          "parser": "backend",
+          "root_selector": "$.measures",
+          "columns": [
+            { "selector": "component", "text": "component", "type": "string" },
+            { "selector": "value", "text": "Vulnerabilities", "type": "number" }
+          ]
         },
         {
           "refId": "D",
@@ -301,9 +337,12 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/measures/search",
           "url_options": { "method": "GET", "params": [{ "key": "projectKeys", "value": "${portfolio:csv}" }, { "key": "metricKeys", "value": "ncloc" }] },
-          "parser": "uql",
-          "root_selector": "",
-          "uql": "parse-json\n| scope \"measures\"\n| project \"component\", \"Ncloc\"=tonumber(\"value\")"
+          "parser": "backend",
+          "root_selector": "$.measures",
+          "columns": [
+            { "selector": "component", "text": "component", "type": "string" },
+            { "selector": "value", "text": "Ncloc", "type": "number" }
+          ]
         }
       ]
     },
@@ -330,8 +369,8 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/ce/activity",
           "url_options": { "method": "GET", "params": [{ "key": "ps", "value": "100" }, { "key": "status", "value": "SUCCESS,FAILED,CANCELED" }] },
-          "parser": "simple",
-          "root_selector": "tasks",
+          "parser": "backend",
+          "root_selector": "$.tasks",
           "columns": [
             { "selector": "componentName", "text": "Project", "type": "string" },
             { "selector": "status", "text": "Status", "type": "string" },
@@ -365,9 +404,12 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/measures/search_history",
           "url_options": { "method": "GET", "params": [{ "key": "component", "value": "${project}" }, { "key": "metrics", "value": "coverage" }, { "key": "ps", "value": "1000" }] },
-          "parser": "uql",
-          "root_selector": "",
-          "uql": "parse-json\n| scope \"measures\"\n| mv-expand \"h\"=\"history\"\n| project \"date\"=todatetime(\"h.date\"), \"Coverage\"=tonumber(\"h.value\")"
+          "parser": "backend",
+          "root_selector": "$.measures[0].history",
+          "columns": [
+            { "selector": "date", "text": "date", "type": "timestamp" },
+            { "selector": "value", "text": "Coverage", "type": "number" }
+          ]
         },
         {
           "refId": "B",
@@ -376,9 +418,12 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/measures/search_history",
           "url_options": { "method": "GET", "params": [{ "key": "component", "value": "${project}" }, { "key": "metrics", "value": "duplicated_lines_density" }, { "key": "ps", "value": "1000" }] },
-          "parser": "uql",
-          "root_selector": "",
-          "uql": "parse-json\n| scope \"measures\"\n| mv-expand \"h\"=\"history\"\n| project \"date\"=todatetime(\"h.date\"), \"Duplication\"=tonumber(\"h.value\")"
+          "parser": "backend",
+          "root_selector": "$.measures[0].history",
+          "columns": [
+            { "selector": "date", "text": "date", "type": "timestamp" },
+            { "selector": "value", "text": "Duplication", "type": "number" }
+          ]
         },
         {
           "refId": "C",
@@ -387,9 +432,12 @@
           "source": "url",
           "url": "http://sonarqube:9000/api/measures/search_history",
           "url_options": { "method": "GET", "params": [{ "key": "component", "value": "${project}" }, { "key": "metrics", "value": "ncloc" }, { "key": "ps", "value": "1000" }] },
-          "parser": "uql",
-          "root_selector": "",
-          "uql": "parse-json\n| scope \"measures\"\n| mv-expand \"h\"=\"history\"\n| project \"date\"=todatetime(\"h.date\"), \"Ncloc\"=tonumber(\"h.value\")"
+          "parser": "backend",
+          "root_selector": "$.measures[0].history",
+          "columns": [
+            { "selector": "date", "text": "date", "type": "timestamp" },
+            { "selector": "value", "text": "Ncloc", "type": "number" }
+          ]
         }
       ]
     }
