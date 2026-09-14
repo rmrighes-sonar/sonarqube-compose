@@ -29,3 +29,26 @@ its logs).
   to the Docker VM (Settings → Resources) — SonarQube plus its Elasticsearch
   index needs headroom beyond the container's own `deploy.resources` limits
   configured in `compose.yaml`.
+
+## Backup & Restore
+
+State lives in Docker named volumes: `postgres_data` (the database, the
+source of truth for SonarQube's configuration/analysis history) and
+`sonarqube_data`/`sonarqube_extensions` (Elasticsearch index + installed
+plugins, both rebuildable/reinstallable but convenient to preserve).
+
+- **Back up:**
+  ```bash
+  ./scripts/backup.sh
+  ```
+  Writes a `pg_dump` of the database plus tarballs of the SonarQube data and
+  extensions volumes into `backups/<timestamp>/` (gitignored — copy these
+  elsewhere for real safekeeping, e.g. off-host storage).
+
+- **Restore:**
+  ```bash
+  ./scripts/restore.sh backups/<timestamp>
+  ```
+  Prompts for confirmation, restores the database, then stops `sonarqube`
+  to safely overwrite its data/extensions volumes before starting it back
+  up.
