@@ -86,6 +86,27 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   supports a single selected project, not "All" (SonarQube's
   `search_history` endpoint takes one component at a time).
 
+  **Troubleshooting an empty usage dashboard:**
+  - If every panel and the `Project`/`Portfolio` variables are empty, check
+    whether the Infinity plugin actually installed:
+    `docker compose logs grafana | grep backgroundinstaller`. On networks
+    that intercept/proxy HTTPS to the Grafana plugin catalog
+    (`storage.googleapis.com`), `GF_PLUGINS_PREINSTALL` can silently fail
+    (Grafana itself still starts fine — the panels just show "Plugin not
+    registered"). Workaround: download the matching
+    `yesoreyeram-infinity-datasource` release zip from
+    [GitHub releases](https://github.com/grafana/grafana-infinity-datasource/releases)
+    on a machine with working access, extract it, and
+    `docker cp` the extracted folder into the running container at
+    `/var/lib/grafana/plugins/yesoreyeram-infinity-datasource` (this path is
+    inside the persistent `grafana_data` volume, so it survives container
+    restarts), then `docker compose restart grafana`.
+  - All query/variable URLs in `sonarqube-usage.json` must be **absolute**
+    (e.g. `http://sonarqube:9000/api/...`), not relative paths — Infinity
+    checks the full URL's host against the datasource's `allowedHosts`
+    security setting, and a relative path resolves to an empty host, which
+    gets silently rejected.
+
 ## Prerequisites
 
 SonarQube bundles an embedded Elasticsearch instance, which requires the
