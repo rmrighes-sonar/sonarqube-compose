@@ -87,26 +87,30 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   `search_history` endpoint takes one component at a time).
 
   **Project/Portfolio variable behavior:** the `Project` and `Portfolio`
-  variables use a static, hardcoded list of this instance's known keys with
-  `refresh: never`, rather than dynamically querying SonarQube on every
-  dashboard load. This was a deliberate, hard-won workaround: with a live
-  query (`refresh: on load`) and/or the built-in "All" pseudo-value, this
-  Infinity datasource + Grafana combination repeatedly resolved the
+  variables are Grafana **`custom`** variables (a static, hardcoded
+  comma-separated list of this instance's known keys), not `query`
+  variables backed by a live Infinity datasource call. This was a
+  deliberate, hard-won design decision after extensive debugging: a
+  `query`-type variable against the Infinity datasource — with a live
+  query, the built-in "All" pseudo-value, various `refresh` settings, and
+  explicit static `current`/`options` overrides — repeatedly resolved the
   interpolated `projectKeys`/`portfolio` query parameter to an **empty
-  string** (confirmed via the actual interpolated URLs in panel error
-  responses), which SonarQube rejects with 400 ("Project keys must be
-  provided") — apparently a timing/expansion issue between Grafana's
-  variable revalidation and this datasource's live query, that couldn't be
-  fully root-caused without browser devtools access. Manually selecting
-  concrete values from the dropdown always worked correctly throughout the
-  investigation, so `includeAll` is disabled and the default selection is a
-  static list instead of the "All" sentinel.
+  string** in the actual outgoing HTTP request (confirmed repeatedly via
+  the exact interpolated URLs captured from panel error responses), which
+  SonarQube rejects with 400 ("Project keys must be provided"). This
+  persisted across a genuinely fresh browser reload and several different
+  variable configurations, and couldn't be fully root-caused without
+  browser devtools access to Grafana's client-side variable engine.
+  Manually selecting concrete values from a dropdown always interpolated
+  correctly throughout the investigation, so the variables were switched
+  to Grafana's simplest, static `custom` type, which has no datasource,
+  no async query, and no "All"-expansion logic to go wrong.
 
   **If you add/remove SonarQube projects or portfolios**, the dropdown
-  options won't automatically pick them up. Update them via **Dashboard
-  settings → Variables → project/portfolio → Options**, or edit the
-  `options`/`current` arrays directly in
-  `grafana/dashboards/sonarqube-usage.json`.
+  options won't automatically pick them up (this is the trade-off for
+  reliability). Update them via **Dashboard settings → Variables →
+  project/portfolio → Custom options**, or edit the `query`/`options`/
+  `current` fields directly in `grafana/dashboards/sonarqube-usage.json`.
 
   **Troubleshooting an empty usage dashboard:**
   - If every panel and the `Project`/`Portfolio` variables are empty, check

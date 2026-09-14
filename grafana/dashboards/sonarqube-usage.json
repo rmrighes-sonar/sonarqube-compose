@@ -12,34 +12,8 @@
       {
         "name": "project",
         "label": "Project",
-        "type": "query",
-        "datasource": {
-          "type": "yesoreyeram-infinity-datasource",
-          "uid": "sonarqube-api"
-        },
-        "query": {
-          "type": "json",
-          "format": "table",
-          "source": "url",
-          "url": "http://sonarqube:9000/api/projects/search?ps=500",
-          "url_options": {
-            "method": "GET"
-          },
-          "parser": "backend",
-          "root_selector": "$.components",
-          "columns": [
-            {
-              "selector": "key",
-              "text": "__value",
-              "type": "string"
-            },
-            {
-              "selector": "name",
-              "text": "__text",
-              "type": "string"
-            }
-          ]
-        },
+        "type": "custom",
+        "query": "gradle-basic,gradle-kotlin-dsl,gradle-kotlin-project,gradle-multimodule,gradle-multimodule-coverage,maven-basic,maven-multilingual,maven-multimodule",
         "includeAll": false,
         "multi": true,
         "current": {
@@ -73,40 +47,13 @@
           { "text": "maven-basic", "value": "maven-basic" },
           { "text": "maven-multilingual", "value": "maven-multilingual" },
           { "text": "maven-multimodule", "value": "maven-multimodule" }
-        ],
-        "refresh": 0
+        ]
       },
       {
         "name": "portfolio",
         "label": "Portfolio",
-        "type": "query",
-        "datasource": {
-          "type": "yesoreyeram-infinity-datasource",
-          "uid": "sonarqube-api"
-        },
-        "query": {
-          "type": "json",
-          "format": "table",
-          "source": "url",
-          "url": "http://sonarqube:9000/api/views/list",
-          "url_options": {
-            "method": "GET"
-          },
-          "parser": "backend",
-          "root_selector": "$.views",
-          "columns": [
-            {
-              "selector": "key",
-              "text": "__value",
-              "type": "string"
-            },
-            {
-              "selector": "name",
-              "text": "__text",
-              "type": "string"
-            }
-          ]
-        },
+        "type": "custom",
+        "query": "sonar-scanner-gradle,sonar-scanner-maven",
         "includeAll": false,
         "multi": true,
         "current": {
@@ -122,8 +69,7 @@
         "options": [
           { "text": "sonar-scanner-gradle", "value": "sonar-scanner-gradle" },
           { "text": "sonar-scanner-maven", "value": "sonar-scanner-maven" }
-        ],
-        "refresh": 0
+        ]
       }
     ]
   },
