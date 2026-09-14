@@ -40,14 +40,28 @@
             }
           ]
         },
-        "includeAll": true,
+        "includeAll": false,
         "multi": true,
         "current": {
           "text": [
-            "All"
+            "gradle-basic",
+            "gradle-kotlin-dsl",
+            "gradle-kotlin-project",
+            "gradle-multimodule",
+            "gradle-multimodule-coverage",
+            "maven-basic",
+            "maven-multilingual",
+            "maven-multimodule"
           ],
           "value": [
-            "$__all"
+            "gradle-basic",
+            "gradle-kotlin-dsl",
+            "gradle-kotlin-project",
+            "gradle-multimodule",
+            "gradle-multimodule-coverage",
+            "maven-basic",
+            "maven-multilingual",
+            "maven-multimodule"
           ]
         },
         "refresh": 1
@@ -83,14 +97,16 @@
             }
           ]
         },
-        "includeAll": true,
+        "includeAll": false,
         "multi": true,
         "current": {
           "text": [
-            "All"
+            "sonar-scanner-gradle",
+            "sonar-scanner-maven"
           ],
           "value": [
-            "$__all"
+            "sonar-scanner-gradle",
+            "sonar-scanner-maven"
           ]
         },
         "refresh": 1
@@ -114,7 +130,7 @@
     {
       "id": 2,
       "title": "Projects overview",
-      "description": "Built by joining 9 separate SonarQube measures/search calls (one per metric) on the component key. /api/measures/search is an internal/undocumented SonarQube endpoint; if it stops working on a future SonarQube upgrade, fall back to /api/measures/component (one call per project).",
+      "description": "Built by joining 9 separate SonarQube measures/search calls (one per metric) on the component key. /api/measures/search is an internal/undocumented SonarQube endpoint; if it stops working on a future SonarQube upgrade, fall back to /api/measures/component (one call per project). The Project variable's 'All' option is intentionally disabled -- Grafana's All-value expansion did not reliably resolve to the real project list for this Infinity datasource/variable combination. Select one or more concrete projects from the dropdown instead.",
       "type": "table",
       "gridPos": {
         "h": 10,
@@ -527,7 +543,7 @@
     {
       "id": 10,
       "title": "Portfolios overview",
-      "description": "Requires the Governance/Enterprise portfolios feature and at least one configured portfolio. Empty if none exist. Uses the same internal /api/measures/search endpoint as the Projects overview panel.",
+      "description": "Requires the Governance/Enterprise portfolios feature and at least one configured portfolio. Empty if none exist. Uses the same internal /api/measures/search endpoint as the Projects overview panel. The Portfolio variable's 'All' option is intentionally disabled -- select one or more concrete portfolios from the dropdown instead.",
       "type": "table",
       "gridPos": {
         "h": 8,
