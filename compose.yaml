@@ -47,6 +47,8 @@ services:
     depends_on:
       sonarqube:
         condition: service_started
+    secrets:
+      - sonar_system_passcode
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -92,3 +94,10 @@ volumes:
   sonarqube_logs:
   prometheus_data:
   grafana_data:
+
+secrets:
+  # Sourced directly from the SONAR_SYSTEM_PASSCODE env var (set in .env) so
+  # the passcode value has a single source of truth and never needs to be
+  # written into a git-tracked config file (e.g. prometheus.yml).
+  sonar_system_passcode:
+    environment: SONAR_SYSTEM_PASSCODE

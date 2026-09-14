@@ -3,6 +3,7 @@ global:
 scrape_configs:
   - job_name: sonarqube
     metrics_path: /api/monitoring/metrics
-    bearer_token: prometheusPassword0!
+    authorization:
+      credentials_file: /run/secrets/sonar_system_passcode
     static_configs:
       - targets: ["sonarqube:9000"]
