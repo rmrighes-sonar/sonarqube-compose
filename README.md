@@ -2,6 +2,49 @@
 
 Local SonarQube stack for demos/testing, run via Docker Compose.
 
+## Overview
+
+`compose.yaml` defines a core stack plus two opt-in profiles:
+
+- **Core** (always started): `db` (Postgres) → `sonarqube`, connected over
+  the default Compose network. Both are only bound to `127.0.0.1`.
+- **`monitoring` profile**: `prometheus` scrapes SonarQube's
+  `/api/monitoring/metrics` endpoint (authenticated via a passcode), and
+  `grafana` visualizes it through a pre-provisioned datasource and
+  dashboard (see `grafana/dashboards/sonarqube-overview.json`).
+- **`share` profile**: `ngrok` tunnels the local SonarQube instance to a
+  fixed public hostname, for sharing access outside your machine.
+
+All services declare healthchecks, and dependent services wait on
+`service_healthy` before starting (e.g. `prometheus`/`ngrok` wait for
+SonarQube to actually be serving requests, not just for the container to
+have started).
+
+## Setup
+
+1. Copy `.env.example` to `.env` and fill in real values:
+   ```bash
+   cp .env.example .env
+   ```
+   `.env` is gitignored and must never be committed.
+2. Review [Prerequisites](#prerequisites) below.
+3. Start the stack:
+   ```bash
+   docker compose up -d                          # core: SonarQube + Postgres
+   docker compose --profile monitoring up -d     # + Prometheus + Grafana
+   docker compose --profile share up -d          # + ngrok tunnel
+   ```
+   Profiles can be combined, e.g. `docker compose --profile monitoring --profile share up -d`.
+
+## Ports & credentials
+
+| Service    | URL                          | Credentials                                             |
+|------------|-------------------------------|----------------------------------------------------------|
+| SonarQube  | http://localhost:9000        | default admin/admin on first login                       |
+| Prometheus | http://localhost:9090        | none (local only)                                         |
+| Grafana    | http://localhost:3000        | `admin` / `GRAFANA_ADMIN_PASSWORD` (from `.env`)          |
+| ngrok      | http://localhost:4040 (inspector) / `NGROK_URL` (public) | n/a |
+
 ## Prerequisites
 
 SonarQube bundles an embedded Elasticsearch instance, which requires the
@@ -29,6 +72,32 @@ its logs).
   to the Docker VM (Settings → Resources) — SonarQube plus its Elasticsearch
   index needs headroom beyond the container's own `deploy.resources` limits
   configured in `compose.yaml`.
+
+## Image policy
+
+This stack intentionally tracks the latest release on every image
+(SonarQube's rolling `enterprise` tag, and `latest` for Prometheus/Grafana)
+for simplicity in local demos, rather than pinning to immutable versions.
+Trade-off: `docker compose pull` can introduce breaking changes between
+runs, so only re-pull deliberately, and expect to occasionally re-validate
+the stack afterwards.
+
+## Secrets handling
+
+- Real secrets live only in `.env` (gitignored); `.env.example` documents
+  every key with safe placeholders for onboarding.
+- `SONAR_SYSTEM_PASSCODE` authenticates Prometheus's scrape of SonarQube's
+  monitoring endpoint. Rather than duplicating that value as plaintext
+  inside the git-tracked `prometheus/prometheus.yml`, it's passed via a
+  Compose secret sourced directly from the env var:
+  ```yaml
+  secrets:
+    sonar_system_passcode:
+      environment: SONAR_SYSTEM_PASSCODE
+  ```
+  Prometheus reads it from the resulting `/run/secrets/sonar_system_passcode`
+  file via `authorization.credentials_file`, so `.env` remains the single
+  source of truth and no secret value is ever written into a tracked file.
 
 ## Backup & Restore
 
