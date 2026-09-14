@@ -1,0 +1,13 @@
+apiVersion: 1
+datasources:
+  - name: SonarQube API
+    uid: sonarqube-api
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    jsonData:
+      auth_method: bearerToken
+      allowedHosts:
+        - http://sonarqube:9000
+    secureJsonData:
+      bearerToken: $__env{SONARQUBE_API_TOKEN}
+    editable: true

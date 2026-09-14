@@ -95,6 +95,11 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: yesoreyeram-infinity-datasource
+      # Consumed via $__env{SONARQUBE_API_TOKEN} in
+      # grafana/provisioning/datasources/sonarqube-api.yaml so the token has
+      # a single source of truth in .env and is never written to a tracked file.
+      SONARQUBE_API_TOKEN: ${SONARQUBE_API_TOKEN}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
