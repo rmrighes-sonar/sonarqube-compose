@@ -1,12 +1,32 @@
 {
   "title": "SonarQube Usage - Projects & Portfolios",
+  "description": "Live quality snapshot plus analysis usage from the SonarQube Web API. KPI, issue, size, and table panels are current measures (they ignore the time picker). Trends use the time range and the single-select Project (history) variable. Portfolios require Enterprise/Governance.",
   "uid": "sonarqube-usage",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 7,
+  "editable": true,
+  "graphTooltip": 1,
+  "preload": false,
+  "refresh": "5m",
+  "tags": ["sonarqube", "usage"],
+  "timezone": "browser",
   "time": {
-    "from": "now-30d",
+    "from": "now-90d",
     "to": "now"
   },
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Server Health",
+      "type": "link",
+      "url": "/d/sonarqube-health"
+    }
+  ],
   "templating": {
     "list": [
       {
@@ -50,6 +70,29 @@
         ]
       },
       {
+        "name": "project_history",
+        "label": "Project (history)",
+        "description": "Single project for trend panels. SonarQube search_history accepts one component at a time.",
+        "type": "custom",
+        "query": "gradle-basic,gradle-kotlin-dsl,gradle-kotlin-project,gradle-multimodule,gradle-multimodule-coverage,maven-basic,maven-multilingual,maven-multimodule",
+        "includeAll": false,
+        "multi": false,
+        "current": {
+          "text": "gradle-basic",
+          "value": "gradle-basic"
+        },
+        "options": [
+          { "text": "gradle-basic", "value": "gradle-basic", "selected": true },
+          { "text": "gradle-kotlin-dsl", "value": "gradle-kotlin-dsl" },
+          { "text": "gradle-kotlin-project", "value": "gradle-kotlin-project" },
+          { "text": "gradle-multimodule", "value": "gradle-multimodule" },
+          { "text": "gradle-multimodule-coverage", "value": "gradle-multimodule-coverage" },
+          { "text": "maven-basic", "value": "maven-basic" },
+          { "text": "maven-multilingual", "value": "maven-multilingual" },
+          { "text": "maven-multimodule", "value": "maven-multimodule" }
+        ]
+      },
+      {
         "name": "portfolio",
         "label": "Portfolio",
         "type": "custom",
@@ -77,292 +120,339 @@
     {
       "id": 1,
       "type": "row",
-      "title": "Projects",
+      "title": "Summary",
       "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
       "panels": []
     },
     {
-      "id": 2,
-      "title": "Projects overview",
-      "description": "Built by joining 9 separate SonarQube measures/search calls (one per metric) on the component key. /api/measures/search is an internal/undocumented SonarQube endpoint; if it stops working on a future SonarQube upgrade, fall back to /api/measures/component (one call per project). The Project variable's 'All' option is intentionally disabled -- Grafana's All-value expansion did not reliably resolve to the real project list for this Infinity datasource/variable combination. Select one or more concrete projects from the dropdown instead.",
-      "type": "table",
-      "gridPos": {
-        "h": 10,
-        "w": 24,
-        "x": 0,
-        "y": 1
+      "id": 20,
+      "title": "Failing quality gates",
+      "description": "Count of selected projects whose quality gate is ERROR. Snapshot from the project measures table.",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 5, "x": 0, "y": 1 },
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "targets": [
+        { "refId": "A", "panelId": 2, "withTransforms": true }
+      ],
+      "transformations": [
+        {
+          "id": "filterByValue",
+          "options": {
+            "filters": [
+              {
+                "fieldName": "QualityGate",
+                "config": {
+                  "id": "equal",
+                  "options": { "value": "ERROR" }
+                }
+              }
+            ],
+            "match": "any",
+            "type": "include"
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": { "names": ["Project"] }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 1, "color": "red" }
+            ]
+          }
+        },
+        "overrides": []
       },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["count"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 21,
+      "title": "Lines of code",
+      "description": "Sum of ncloc across selected projects. Cross-reference remaining license lines on Server Health.",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 5, "x": 5, "y": 1 },
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "targets": [
+        { "refId": "A", "panelId": 2, "withTransforms": true }
+      ],
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": { "names": ["LoC"] }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "value": null, "color": "blue" }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": ["sum"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 22,
+      "title": "Average coverage",
+      "description": "Mean overall coverage across selected projects that report the metric.",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 5, "x": 10, "y": 1 },
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "targets": [
+        { "refId": "A", "panelId": 2, "withTransforms": true }
+      ],
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": { "names": ["Coverage"] }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "max": 100,
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 50, "color": "orange" },
+              { "value": 80, "color": "green" }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": ["mean"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 23,
+      "title": "Vulnerabilities",
+      "description": "Sum of overall-code vulnerabilities across selected projects.",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 5, "x": 15, "y": 1 },
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "targets": [
+        { "refId": "A", "panelId": 2, "withTransforms": true }
+      ],
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": { "names": ["Vulnerabilities"] }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 1, "color": "orange" },
+              { "value": 5, "color": "red" }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": ["sum"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 24,
+      "title": "Bugs",
+      "description": "Sum of overall-code bugs across selected projects.",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "targets": [
+        { "refId": "A", "panelId": 2, "withTransforms": true }
+      ],
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": { "names": ["Bugs"] }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 1, "color": "orange" },
+              { "value": 20, "color": "red" }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": ["sum"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      }
+    },
+    {
+      "id": 16,
+      "title": "Analysis recency",
+      "description": "Last analysis time for selected projects (stale first). Uses /api/components/search and the Project variable.",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 5 },
       "datasource": {
         "type": "yesoreyeram-infinity-datasource",
         "uid": "sonarqube-api"
       },
-      "transformations": [
-        {
-          "id": "joinByField",
-          "options": {
-            "byField": "component",
-            "mode": "outer"
-          }
-        }
-      ],
       "targets": [
         {
           "refId": "A",
           "type": "json",
           "format": "table",
           "source": "url",
-          "url": "http://sonarqube:9000/api/measures/search?projectKeys=${project:csv}&metricKeys=alert_status",
-          "url_options": {
-            "method": "GET"
-          },
+          "url": "http://sonarqube:9000/api/components/search?qualifiers=TRK&ps=500",
+          "url_options": { "method": "GET" },
           "parser": "backend",
-          "root_selector": "$.measures",
+          "root_selector": "$.components",
           "columns": [
-            {
-              "selector": "component",
-              "text": "component",
-              "type": "string"
-            },
-            {
-              "selector": "value",
-              "text": "QualityGate",
-              "type": "string"
-            }
-          ]
-        },
-        {
-          "refId": "B",
-          "type": "json",
-          "format": "table",
-          "source": "url",
-          "url": "http://sonarqube:9000/api/measures/search?projectKeys=${project:csv}&metricKeys=bugs",
-          "url_options": {
-            "method": "GET"
-          },
-          "parser": "backend",
-          "root_selector": "$.measures",
-          "columns": [
-            {
-              "selector": "component",
-              "text": "component",
-              "type": "string"
-            },
-            {
-              "selector": "value",
-              "text": "Bugs",
-              "type": "number"
-            }
-          ]
-        },
-        {
-          "refId": "C",
-          "type": "json",
-          "format": "table",
-          "source": "url",
-          "url": "http://sonarqube:9000/api/measures/search?projectKeys=${project:csv}&metricKeys=vulnerabilities",
-          "url_options": {
-            "method": "GET"
-          },
-          "parser": "backend",
-          "root_selector": "$.measures",
-          "columns": [
-            {
-              "selector": "component",
-              "text": "component",
-              "type": "string"
-            },
-            {
-              "selector": "value",
-              "text": "Vulnerabilities",
-              "type": "number"
-            }
-          ]
-        },
-        {
-          "refId": "D",
-          "type": "json",
-          "format": "table",
-          "source": "url",
-          "url": "http://sonarqube:9000/api/measures/search?projectKeys=${project:csv}&metricKeys=code_smells",
-          "url_options": {
-            "method": "GET"
-          },
-          "parser": "backend",
-          "root_selector": "$.measures",
-          "columns": [
-            {
-              "selector": "component",
-              "text": "component",
-              "type": "string"
-            },
-            {
-              "selector": "value",
-              "text": "CodeSmells",
-              "type": "number"
-            }
-          ]
-        },
-        {
-          "refId": "E",
-          "type": "json",
-          "format": "table",
-          "source": "url",
-          "url": "http://sonarqube:9000/api/measures/search?projectKeys=${project:csv}&metricKeys=coverage",
-          "url_options": {
-            "method": "GET"
-          },
-          "parser": "backend",
-          "root_selector": "$.measures",
-          "columns": [
-            {
-              "selector": "component",
-              "text": "component",
-              "type": "string"
-            },
-            {
-              "selector": "value",
-              "text": "Coverage",
-              "type": "number"
-            }
-          ]
-        },
-        {
-          "refId": "F",
-          "type": "json",
-          "format": "table",
-          "source": "url",
-          "url": "http://sonarqube:9000/api/measures/search?projectKeys=${project:csv}&metricKeys=duplicated_lines_density",
-          "url_options": {
-            "method": "GET"
-          },
-          "parser": "backend",
-          "root_selector": "$.measures",
-          "columns": [
-            {
-              "selector": "component",
-              "text": "component",
-              "type": "string"
-            },
-            {
-              "selector": "value",
-              "text": "Duplication",
-              "type": "number"
-            }
-          ]
-        },
-        {
-          "refId": "G",
-          "type": "json",
-          "format": "table",
-          "source": "url",
-          "url": "http://sonarqube:9000/api/measures/search?projectKeys=${project:csv}&metricKeys=ncloc",
-          "url_options": {
-            "method": "GET"
-          },
-          "parser": "backend",
-          "root_selector": "$.measures",
-          "columns": [
-            {
-              "selector": "component",
-              "text": "component",
-              "type": "string"
-            },
-            {
-              "selector": "value",
-              "text": "Ncloc",
-              "type": "number"
-            }
-          ]
-        },
-        {
-          "refId": "H",
-          "type": "json",
-          "format": "table",
-          "source": "url",
-          "url": "http://sonarqube:9000/api/measures/search?projectKeys=${project:csv}&metricKeys=security_rating",
-          "url_options": {
-            "method": "GET"
-          },
-          "parser": "backend",
-          "root_selector": "$.measures",
-          "columns": [
-            {
-              "selector": "component",
-              "text": "component",
-              "type": "string"
-            },
-            {
-              "selector": "value",
-              "text": "SecurityRating",
-              "type": "number"
-            }
-          ]
-        },
-        {
-          "refId": "I",
-          "type": "json",
-          "format": "table",
-          "source": "url",
-          "url": "http://sonarqube:9000/api/measures/search?projectKeys=${project:csv}&metricKeys=reliability_rating",
-          "url_options": {
-            "method": "GET"
-          },
-          "parser": "backend",
-          "root_selector": "$.measures",
-          "columns": [
-            {
-              "selector": "component",
-              "text": "component",
-              "type": "string"
-            },
-            {
-              "selector": "value",
-              "text": "ReliabilityRating",
-              "type": "number"
-            }
+            { "selector": "key", "text": "Project", "type": "string" },
+            { "selector": "name", "text": "Name", "type": "string" },
+            { "selector": "lastAnalysisDate", "text": "Last analysis", "type": "timestamp" }
           ]
         }
-      ]
-    },
-    {
-      "id": 3,
-      "type": "row",
-      "title": "Quality & issues",
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 11
+      ],
+      "transformations": [
+        {
+          "id": "filterByValue",
+          "options": {
+            "filters": [
+              {
+                "fieldName": "Project",
+                "config": {
+                  "id": "regex",
+                  "options": { "value": "${project:regex}" }
+                }
+              }
+            ],
+            "match": "any",
+            "type": "include"
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [{ "field": "Last analysis", "desc": false }]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "filterable": true, "inspect": false }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Project" },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open in SonarQube",
+                    "url": "http://localhost:9000/dashboard?id=${__value.text}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Last analysis" },
+            "properties": [
+              { "id": "unit", "value": "dateTimeFromNow" }
+            ]
+          }
+        ]
       },
-      "panels": []
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [{ "displayName": "Last analysis", "desc": false }]
+      }
     },
     {
       "id": 4,
       "title": "Quality gate status",
-      "description": "Reuses the Projects overview panel's data (via the Dashboard datasource) and groups by QualityGate.",
+      "description": "Distribution of quality gate results across selected projects.",
       "type": "piechart",
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 12
-      },
-      "datasource": {
-        "type": "datasource",
-        "uid": "-- Dashboard --"
-      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 5 },
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
       "targets": [
-        {
-          "refId": "A",
-          "panelId": 2
-        }
+        { "refId": "A", "panelId": 2, "withTransforms": true }
       ],
       "transformations": [
         {
@@ -373,77 +463,217 @@
                 "aggregations": [],
                 "operation": "groupby"
               },
-              "component": {
-                "aggregations": [
-                  "count"
-                ],
+              "Project": {
+                "aggregations": ["count"],
                 "operation": "aggregate"
               }
             }
           }
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "OK" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "ERROR" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "WARN" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "pieType": "donut",
+        "displayLabels": ["name", "percent"],
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "values": ["value"]
+        },
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "/Project.*count/",
+          "values": true
+        },
+        "tooltip": { "mode": "single", "sort": "none" }
+      }
+    },
+    {
+      "id": 3,
+      "type": "row",
+      "title": "Issues",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+      "panels": []
     },
     {
       "id": 5,
       "title": "Top projects by bugs",
-      "type": "bargauge",
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 12
-      },
-      "datasource": {
-        "type": "datasource",
-        "uid": "-- Dashboard --"
-      },
+      "description": "Selected projects ranked by overall-code bugs (top 10).",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
       "targets": [
+        { "refId": "A", "panelId": 2, "withTransforms": true }
+      ],
+      "transformations": [
         {
-          "refId": "A",
-          "panelId": 2
+          "id": "filterFieldsByName",
+          "options": {
+            "include": { "names": ["Project", "Bugs"] }
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              { "destinationType": "string", "targetField": "Project" }
+            ]
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [{ "field": "Bugs", "desc": true }]
+          }
+        },
+        {
+          "id": "limit",
+          "options": { "limitField": 10 }
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "min": 0,
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "custom": {
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "lineWidth": 1
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 1, "color": "yellow" },
+              { "value": 5, "color": "orange" },
+              { "value": 20, "color": "red" }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
-        "displayMode": "gradient",
-        "orientation": "horizontal"
+        "barRadius": 0,
+        "barWidth": 0.7,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "xField": "Project",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
       }
     },
     {
       "id": 6,
       "title": "Top projects by vulnerabilities",
-      "type": "bargauge",
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 12
-      },
-      "datasource": {
-        "type": "datasource",
-        "uid": "-- Dashboard --"
-      },
+      "description": "Selected projects ranked by overall-code vulnerabilities (top 10).",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
       "targets": [
+        { "refId": "A", "panelId": 2, "withTransforms": true }
+      ],
+      "transformations": [
         {
-          "refId": "A",
-          "panelId": 2
+          "id": "filterFieldsByName",
+          "options": {
+            "include": { "names": ["Project", "Vulnerabilities"] }
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              { "destinationType": "string", "targetField": "Project" }
+            ]
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [{ "field": "Vulnerabilities", "desc": true }]
+          }
+        },
+        {
+          "id": "limit",
+          "options": { "limitField": 10 }
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "min": 0,
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "custom": {
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "lineWidth": 1
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 1, "color": "orange" },
+              { "value": 5, "color": "red" }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
-        "displayMode": "gradient",
-        "orientation": "horizontal"
+        "barRadius": 0,
+        "barWidth": 0.7,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "xField": "Project",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
       }
     },
     {
@@ -451,76 +681,169 @@
       "type": "row",
       "title": "Codebase size",
       "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 20
-      },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
       "panels": []
     },
     {
       "id": 8,
       "title": "Lines of code by project",
-      "description": "Cross-reference with the license Lines analyzed vs remaining panel on the Server Health dashboard.",
+      "description": "ncloc for selected projects. Cross-reference remaining license lines on Server Health.",
       "type": "barchart",
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 21
-      },
-      "datasource": {
-        "type": "datasource",
-        "uid": "-- Dashboard --"
-      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 23 },
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
       "targets": [
+        { "refId": "A", "panelId": 2, "withTransforms": true }
+      ],
+      "transformations": [
         {
-          "refId": "A",
-          "panelId": 2
+          "id": "filterFieldsByName",
+          "options": {
+            "include": { "names": ["Project", "LoC"] }
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              { "destinationType": "string", "targetField": "Project" }
+            ]
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [{ "field": "LoC", "desc": true }]
+          }
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "min": 0,
+          "unit": "short",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "lineWidth": 1
+          }
         },
         "overrides": []
+      },
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.7,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "xField": "Project",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
       }
     },
     {
-      "id": 9,
+      "id": 30,
       "type": "row",
-      "title": "Portfolios",
+      "title": "Project measures",
       "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 29
-      },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 },
       "panels": []
     },
     {
-      "id": 10,
-      "title": "Portfolios overview",
-      "description": "Requires the Governance/Enterprise portfolios feature and at least one configured portfolio. Empty if none exist. Uses the same internal /api/measures/search endpoint as the Projects overview panel. The Portfolio variable's 'All' option is intentionally disabled -- select one or more concrete portfolios from the dropdown instead.",
+      "id": 2,
+      "title": "Projects overview",
+      "description": "One /api/measures/search call for overall metrics plus one for new-code metrics (period values), pivoted on project key. /api/measures/search is an internal SonarQube endpoint; if it breaks on upgrade, fall back to /api/measures/component (one call per project). The Project variable's All option is disabled so projectKeys always interpolates to concrete keys.",
       "type": "table",
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 30
-      },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 32 },
       "datasource": {
         "type": "yesoreyeram-infinity-datasource",
         "uid": "sonarqube-api"
       },
       "transformations": [
+        { "id": "merge", "options": {} },
         {
-          "id": "joinByField",
+          "id": "groupingToMatrix",
           "options": {
-            "byField": "component",
-            "mode": "outer"
+            "columnField": "metric",
+            "rowField": "component",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              { "destinationType": "number", "targetField": "bugs" },
+              { "destinationType": "number", "targetField": "new_bugs" },
+              { "destinationType": "number", "targetField": "vulnerabilities" },
+              { "destinationType": "number", "targetField": "new_vulnerabilities" },
+              { "destinationType": "number", "targetField": "security_hotspots" },
+              { "destinationType": "number", "targetField": "code_smells" },
+              { "destinationType": "number", "targetField": "coverage" },
+              { "destinationType": "number", "targetField": "new_coverage" },
+              { "destinationType": "number", "targetField": "duplicated_lines_density" },
+              { "destinationType": "number", "targetField": "ncloc" },
+              { "destinationType": "number", "targetField": "security_rating" },
+              { "destinationType": "number", "targetField": "reliability_rating" },
+              { "destinationType": "number", "targetField": "sqale_rating" }
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "component\\metric": 0,
+              "alert_status": 1,
+              "bugs": 2,
+              "new_bugs": 3,
+              "vulnerabilities": 4,
+              "new_vulnerabilities": 5,
+              "security_hotspots": 6,
+              "code_smells": 7,
+              "coverage": 8,
+              "new_coverage": 9,
+              "duplicated_lines_density": 10,
+              "ncloc": 11,
+              "reliability_rating": 12,
+              "security_rating": 13,
+              "sqale_rating": 14
+            },
+            "renameByName": {
+              "component\\metric": "Project",
+              "component": "Project",
+              "Value": "Project",
+              "Field": "Project",
+              "alert_status": "QualityGate",
+              "bugs": "Bugs",
+              "new_bugs": "NewBugs",
+              "vulnerabilities": "Vulnerabilities",
+              "new_vulnerabilities": "NewVulnerabilities",
+              "security_hotspots": "Hotspots",
+              "code_smells": "CodeSmells",
+              "coverage": "Coverage",
+              "new_coverage": "NewCoverage",
+              "duplicated_lines_density": "Duplication",
+              "ncloc": "LoC",
+              "reliability_rating": "Reliability",
+              "security_rating": "Security",
+              "sqale_rating": "Maintainability"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [{ "field": "QualityGate", "desc": false }]
           }
         }
       ],
@@ -530,23 +853,14 @@
           "type": "json",
           "format": "table",
           "source": "url",
-          "url": "http://sonarqube:9000/api/measures/search?projectKeys=${portfolio:csv}&metricKeys=alert_status",
-          "url_options": {
-            "method": "GET"
-          },
+          "url": "http://sonarqube:9000/api/measures/search?projectKeys=${project:csv}&metricKeys=alert_status,bugs,vulnerabilities,security_hotspots,code_smells,coverage,duplicated_lines_density,ncloc,security_rating,reliability_rating,sqale_rating",
+          "url_options": { "method": "GET" },
           "parser": "backend",
           "root_selector": "$.measures",
           "columns": [
-            {
-              "selector": "component",
-              "text": "component",
-              "type": "string"
-            },
-            {
-              "selector": "value",
-              "text": "QualityGate",
-              "type": "string"
-            }
+            { "selector": "component", "text": "component", "type": "string" },
+            { "selector": "metric", "text": "metric", "type": "string" },
+            { "selector": "value", "text": "value", "type": "string" }
           ]
         },
         {
@@ -554,72 +868,481 @@
           "type": "json",
           "format": "table",
           "source": "url",
-          "url": "http://sonarqube:9000/api/measures/search?projectKeys=${portfolio:csv}&metricKeys=bugs",
-          "url_options": {
-            "method": "GET"
-          },
+          "url": "http://sonarqube:9000/api/measures/search?projectKeys=${project:csv}&metricKeys=new_bugs,new_vulnerabilities,new_coverage",
+          "url_options": { "method": "GET" },
           "parser": "backend",
           "root_selector": "$.measures",
           "columns": [
-            {
-              "selector": "component",
-              "text": "component",
-              "type": "string"
-            },
-            {
-              "selector": "value",
-              "text": "Bugs",
-              "type": "number"
-            }
+            { "selector": "component", "text": "component", "type": "string" },
+            { "selector": "metric", "text": "metric", "type": "string" },
+            { "selector": "period.value", "text": "value", "type": "string" }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "inspect": false,
+            "cellOptions": { "type": "auto" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Project" },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open in SonarQube",
+                    "url": "http://localhost:9000/dashboard?id=${__value.text}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "QualityGate" },
+            "properties": [
+              { "id": "displayName", "value": "Quality gate" },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "OK": { "text": "OK", "color": "green" },
+                      "ERROR": { "text": "ERROR", "color": "red" },
+                      "WARN": { "text": "WARN", "color": "yellow" },
+                      "NONE": { "text": "NONE", "color": "text" }
+                    }
+                  }
+                ]
+              },
+              { "id": "custom.cellOptions", "value": { "mode": "basic", "type": "color-background" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "NewBugs" },
+            "properties": [
+              { "id": "displayName", "value": "New bugs" },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "value": null, "color": "green" },
+                    { "value": 1, "color": "orange" },
+                    { "value": 5, "color": "red" }
+                  ]
+                }
+              },
+              { "id": "custom.cellOptions", "value": { "mode": "basic", "type": "color-background" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "NewVulnerabilities" },
+            "properties": [
+              { "id": "displayName", "value": "New vulns" },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "value": null, "color": "green" },
+                    { "value": 1, "color": "orange" },
+                    { "value": 5, "color": "red" }
+                  ]
+                }
+              },
+              { "id": "custom.cellOptions", "value": { "mode": "basic", "type": "color-background" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "CodeSmells" },
+            "properties": [
+              { "id": "displayName", "value": "Code smells" }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": "^(Coverage|NewCoverage)$" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              { "id": "decimals", "value": 1 },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "value": null, "color": "red" },
+                    { "value": 50, "color": "orange" },
+                    { "value": 80, "color": "green" }
+                  ]
+                }
+              },
+              { "id": "custom.cellOptions", "value": { "mode": "basic", "type": "color-background" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "NewCoverage" },
+            "properties": [
+              { "id": "displayName", "value": "New coverage" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Duplication" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              { "id": "decimals", "value": 1 },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "value": null, "color": "green" },
+                    { "value": 3, "color": "orange" },
+                    { "value": 10, "color": "red" }
+                  ]
+                }
+              },
+              { "id": "custom.cellOptions", "value": { "mode": "basic", "type": "color-background" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": "^(Reliability|Security|Maintainability)$" },
+            "properties": [
+              { "id": "decimals", "value": 0 },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "1": { "text": "A", "color": "green" },
+                      "2": { "text": "B", "color": "super-light-green" },
+                      "3": { "text": "C", "color": "yellow" },
+                      "4": { "text": "D", "color": "orange" },
+                      "5": { "text": "E", "color": "red" }
+                    }
+                  }
+                ]
+              },
+              { "id": "custom.cellOptions", "value": { "mode": "basic", "type": "color-background" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": true, "fields": "", "reducer": ["count"], "show": true },
+        "showHeader": true,
+        "sortBy": [{ "displayName": "Quality gate", "desc": false }]
+      }
+    },
+    {
+      "id": 13,
+      "type": "row",
+      "title": "Trends",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 44 },
+      "panels": []
+    },
+    {
+      "id": 14,
+      "title": "Coverage and duplication",
+      "description": "Measure history for Project (history). Uses the dashboard time range. Percent metrics only — LoC is the panel to the right.",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 45 },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "sonarqube-api"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "format": "timeseries",
+          "source": "url",
+          "url": "http://sonarqube:9000/api/measures/search_history?component=${project_history}&metrics=coverage&from=${__from:date:YYYY-MM-DD}&to=${__to:date:YYYY-MM-DD}&ps=1000",
+          "url_options": { "method": "GET" },
+          "parser": "backend",
+          "root_selector": "$.measures[0].history",
+          "columns": [
+            { "selector": "date", "text": "date", "type": "timestamp" },
+            { "selector": "value", "text": "Coverage", "type": "number" }
           ]
         },
         {
-          "refId": "C",
+          "refId": "B",
           "type": "json",
-          "format": "table",
+          "format": "timeseries",
           "source": "url",
-          "url": "http://sonarqube:9000/api/measures/search?projectKeys=${portfolio:csv}&metricKeys=vulnerabilities",
-          "url_options": {
-            "method": "GET"
-          },
+          "url": "http://sonarqube:9000/api/measures/search_history?component=${project_history}&metrics=duplicated_lines_density&from=${__from:date:YYYY-MM-DD}&to=${__to:date:YYYY-MM-DD}&ps=1000",
+          "url_options": { "method": "GET" },
           "parser": "backend",
-          "root_selector": "$.measures",
+          "root_selector": "$.measures[0].history",
           "columns": [
-            {
-              "selector": "component",
-              "text": "component",
-              "type": "string"
-            },
-            {
-              "selector": "value",
-              "text": "Vulnerabilities",
-              "type": "number"
-            }
+            { "selector": "date", "text": "date", "type": "timestamp" },
+            { "selector": "value", "text": "Duplication", "type": "number" }
           ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": true,
+            "insertNulls": false
+          }
         },
-        {
-          "refId": "D",
-          "type": "json",
-          "format": "table",
-          "source": "url",
-          "url": "http://sonarqube:9000/api/measures/search?projectKeys=${portfolio:csv}&metricKeys=ncloc",
-          "url_options": {
-            "method": "GET"
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Coverage" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }
+            ]
           },
+          {
+            "matcher": { "id": "byName", "options": "Duplication" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": ["lastNotNull"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      }
+    },
+    {
+      "id": 15,
+      "title": "Lines of code",
+      "description": "ncloc history for Project (history). Uses the dashboard time range.",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 45 },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "sonarqube-api"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "format": "timeseries",
+          "source": "url",
+          "url": "http://sonarqube:9000/api/measures/search_history?component=${project_history}&metrics=ncloc&from=${__from:date:YYYY-MM-DD}&to=${__to:date:YYYY-MM-DD}&ps=1000",
+          "url_options": { "method": "GET" },
           "parser": "backend",
-          "root_selector": "$.measures",
+          "root_selector": "$.measures[0].history",
           "columns": [
+            { "selector": "date", "text": "date", "type": "timestamp" },
+            { "selector": "value", "text": "LoC", "type": "number" }
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": true,
+            "insertNulls": false
+          },
+          "color": { "fixedColor": "blue", "mode": "fixed" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["lastNotNull"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "single", "sort": "none" }
+      }
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "Portfolios (Enterprise)",
+      "collapsed": true,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 54 },
+      "panels": [
+        {
+          "id": 10,
+          "title": "Portfolios overview",
+          "description": "Requires Governance/Enterprise portfolios. One /api/measures/search call, pivoted on portfolio key. Empty if none exist or the Portfolio variable does not match.",
+          "type": "table",
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 55 },
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "sonarqube-api"
+          },
+          "transformations": [
             {
-              "selector": "component",
-              "text": "component",
-              "type": "string"
+              "id": "groupingToMatrix",
+              "options": {
+                "columnField": "metric",
+                "rowField": "component",
+                "valueField": "value"
+              }
             },
             {
-              "selector": "value",
-              "text": "Ncloc",
-              "type": "number"
+              "id": "convertFieldType",
+              "options": {
+                "conversions": [
+                  { "destinationType": "number", "targetField": "bugs" },
+                  { "destinationType": "number", "targetField": "vulnerabilities" },
+                  { "destinationType": "number", "targetField": "ncloc" },
+                  { "destinationType": "number", "targetField": "coverage" },
+                  { "destinationType": "number", "targetField": "duplicated_lines_density" },
+                  { "destinationType": "number", "targetField": "security_rating" },
+                  { "destinationType": "number", "targetField": "reliability_rating" }
+                ]
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {
+                  "component\\metric": 0,
+                  "alert_status": 1,
+                  "bugs": 2,
+                  "vulnerabilities": 3,
+                  "coverage": 4,
+                  "duplicated_lines_density": 5,
+                  "ncloc": 6,
+                  "reliability_rating": 7,
+                  "security_rating": 8
+                },
+                "renameByName": {
+                  "component\\metric": "Portfolio",
+                  "component": "Portfolio",
+                  "Value": "Portfolio",
+                  "Field": "Portfolio",
+                  "alert_status": "QualityGate",
+                  "bugs": "Bugs",
+                  "vulnerabilities": "Vulnerabilities",
+                  "ncloc": "LoC",
+                  "coverage": "Coverage",
+                  "duplicated_lines_density": "Duplication",
+                  "reliability_rating": "Reliability",
+                  "security_rating": "Security"
+                }
+              }
             }
-          ]
+          ],
+          "targets": [
+            {
+              "refId": "A",
+              "type": "json",
+              "format": "table",
+              "source": "url",
+              "url": "http://sonarqube:9000/api/measures/search?projectKeys=${portfolio:csv}&metricKeys=alert_status,bugs,vulnerabilities,ncloc,coverage,duplicated_lines_density,security_rating,reliability_rating",
+              "url_options": { "method": "GET" },
+              "parser": "backend",
+              "root_selector": "$.measures",
+              "columns": [
+                { "selector": "component", "text": "component", "type": "string" },
+                { "selector": "metric", "text": "metric", "type": "string" },
+                { "selector": "value", "text": "value", "type": "string" }
+              ]
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "filterable": true,
+                "inspect": false,
+                "cellOptions": { "type": "auto" }
+              }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "QualityGate" },
+                "properties": [
+                  { "id": "displayName", "value": "Quality gate" },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "OK": { "text": "OK", "color": "green" },
+                          "ERROR": { "text": "ERROR", "color": "red" },
+                          "WARN": { "text": "WARN", "color": "yellow" }
+                        }
+                      }
+                    ]
+                  },
+                  { "id": "custom.cellOptions", "value": { "mode": "basic", "type": "color-background" } }
+                ]
+              },
+              {
+                "matcher": { "id": "byName", "options": "Coverage" },
+                "properties": [
+                  { "id": "unit", "value": "percent" },
+                  { "id": "decimals", "value": 1 }
+                ]
+              },
+              {
+                "matcher": { "id": "byName", "options": "Duplication" },
+                "properties": [
+                  { "id": "unit", "value": "percent" },
+                  { "id": "decimals", "value": 1 }
+                ]
+              },
+              {
+                "matcher": { "id": "byRegexp", "options": "^(Reliability|Security)$" },
+                "properties": [
+                  { "id": "decimals", "value": 0 },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "1": { "text": "A", "color": "green" },
+                          "2": { "text": "B", "color": "super-light-green" },
+                          "3": { "text": "C", "color": "yellow" },
+                          "4": { "text": "D", "color": "orange" },
+                          "5": { "text": "E", "color": "red" }
+                        }
+                      }
+                    ]
+                  },
+                  { "id": "custom.cellOptions", "value": { "mode": "basic", "type": "color-background" } }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "cellHeight": "sm",
+            "showHeader": true
+          }
         }
       ]
     },
@@ -627,166 +1350,131 @@
       "id": 11,
       "type": "row",
       "title": "Recent analyses",
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 38
-      },
-      "panels": []
-    },
-    {
-      "id": 12,
-      "title": "Recent Compute Engine analyses",
-      "type": "table",
-      "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 39
-      },
-      "datasource": {
-        "type": "yesoreyeram-infinity-datasource",
-        "uid": "sonarqube-api"
-      },
-      "targets": [
+      "collapsed": true,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 55 },
+      "panels": [
         {
-          "refId": "A",
-          "type": "json",
-          "format": "table",
-          "source": "url",
-          "url": "http://sonarqube:9000/api/ce/activity?ps=100&status=SUCCESS,FAILED,CANCELED",
-          "url_options": {
-            "method": "GET"
+          "id": 12,
+          "title": "Recent Compute Engine analyses",
+          "description": "Latest REPORT tasks for selected projects. Filtered by the Project variable on componentKey.",
+          "type": "table",
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 56 },
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "sonarqube-api"
           },
-          "parser": "backend",
-          "root_selector": "$.tasks",
-          "columns": [
+          "targets": [
             {
-              "selector": "componentName",
-              "text": "Project",
-              "type": "string"
-            },
-            {
-              "selector": "status",
-              "text": "Status",
-              "type": "string"
-            },
-            {
-              "selector": "submittedAt",
-              "text": "Submitted",
-              "type": "timestamp"
-            },
-            {
-              "selector": "executionTimeMs",
-              "text": "Duration (ms)",
-              "type": "number"
+              "refId": "A",
+              "type": "json",
+              "format": "table",
+              "source": "url",
+              "url": "http://sonarqube:9000/api/ce/activity?ps=100&type=REPORT&status=SUCCESS,FAILED,CANCELED",
+              "url_options": { "method": "GET" },
+              "parser": "backend",
+              "root_selector": "$.tasks",
+              "columns": [
+                { "selector": "componentKey", "text": "componentKey", "type": "string" },
+                { "selector": "componentName", "text": "Project", "type": "string" },
+                { "selector": "status", "text": "Status", "type": "string" },
+                { "selector": "submittedAt", "text": "Submitted", "type": "timestamp" },
+                { "selector": "executionTimeMs", "text": "Duration", "type": "number" },
+                { "selector": "errorMessage", "text": "Error", "type": "string" }
+              ]
             }
-          ]
-        }
-      ]
-    },
-    {
-      "id": 13,
-      "type": "row",
-      "title": "Coverage & duplication over time",
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 48
-      },
-      "panels": []
-    },
-    {
-      "id": 14,
-      "title": "Coverage / duplication / size history (selected project)",
-      "description": "Select a single project in the Project variable above; this panel does not support multi-select (SonarQube's search_history endpoint takes one component at a time).",
-      "type": "timeseries",
-      "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 49
-      },
-      "datasource": {
-        "type": "yesoreyeram-infinity-datasource",
-        "uid": "sonarqube-api"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "type": "json",
-          "format": "timeseries",
-          "source": "url",
-          "url": "http://sonarqube:9000/api/measures/search_history?component=${project}&metrics=coverage&ps=1000",
-          "url_options": {
-            "method": "GET"
+          ],
+          "transformations": [
+            {
+              "id": "filterByValue",
+              "options": {
+                "filters": [
+                  {
+                    "fieldName": "componentKey",
+                    "config": {
+                      "id": "regex",
+                      "options": { "value": "${project:regex}" }
+                    }
+                  }
+                ],
+                "match": "any",
+                "type": "include"
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": { "componentKey": false },
+                "indexByName": {
+                  "Project": 0,
+                  "componentKey": 1,
+                  "Status": 2,
+                  "Submitted": 3,
+                  "Duration": 4,
+                  "Error": 5
+                },
+                "renameByName": {
+                  "componentKey": "Project key"
+                }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "filterable": true,
+                "inspect": false,
+                "cellOptions": { "type": "auto" }
+              }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "Status" },
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "SUCCESS": { "text": "SUCCESS", "color": "green" },
+                          "FAILED": { "text": "FAILED", "color": "red" },
+                          "CANCELED": { "text": "CANCELED", "color": "orange" }
+                        }
+                      }
+                    ]
+                  },
+                  { "id": "custom.cellOptions", "value": { "mode": "basic", "type": "color-background" } }
+                ]
+              },
+              {
+                "matcher": { "id": "byName", "options": "Duration" },
+                "properties": [
+                  { "id": "unit", "value": "ms" },
+                  { "id": "decimals", "value": 0 }
+                ]
+              },
+              {
+                "matcher": { "id": "byName", "options": "Project key" },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "Open in SonarQube",
+                        "url": "http://localhost:9000/dashboard?id=${__value.text}"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
           },
-          "parser": "backend",
-          "root_selector": "$.measures[0].history",
-          "columns": [
-            {
-              "selector": "date",
-              "text": "date",
-              "type": "timestamp"
-            },
-            {
-              "selector": "value",
-              "text": "Coverage",
-              "type": "number"
-            }
-          ]
-        },
-        {
-          "refId": "B",
-          "type": "json",
-          "format": "timeseries",
-          "source": "url",
-          "url": "http://sonarqube:9000/api/measures/search_history?component=${project}&metrics=duplicated_lines_density&ps=1000",
-          "url_options": {
-            "method": "GET"
-          },
-          "parser": "backend",
-          "root_selector": "$.measures[0].history",
-          "columns": [
-            {
-              "selector": "date",
-              "text": "date",
-              "type": "timestamp"
-            },
-            {
-              "selector": "value",
-              "text": "Duplication",
-              "type": "number"
-            }
-          ]
-        },
-        {
-          "refId": "C",
-          "type": "json",
-          "format": "timeseries",
-          "source": "url",
-          "url": "http://sonarqube:9000/api/measures/search_history?component=${project}&metrics=ncloc&ps=1000",
-          "url_options": {
-            "method": "GET"
-          },
-          "parser": "backend",
-          "root_selector": "$.measures[0].history",
-          "columns": [
-            {
-              "selector": "date",
-              "text": "date",
-              "type": "timestamp"
-            },
-            {
-              "selector": "value",
-              "text": "Ncloc",
-              "type": "number"
-            }
-          ]
+          "options": {
+            "cellHeight": "sm",
+            "showHeader": true,
+            "sortBy": [{ "displayName": "Submitted", "desc": true }]
+          }
         }
       ]
     }

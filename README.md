@@ -59,15 +59,19 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   beyond the `monitoring` profile.
 
 - **SonarQube Usage — Projects & Portfolios**
-  (`grafana/dashboards/sonarqube-usage.json`) — per-project quality gate
-  status, bugs/vulnerabilities/code smells, coverage, duplication, lines of
-  code, a portfolios overview (if any are configured — requires the
-  Enterprise/Governance edition), recent Compute Engine analyses, and a
-  coverage/duplication/size history chart for a single selected project.
-  This data isn't available via Prometheus, so it's queried directly from
-  SonarQube's Web API using Grafana's **Infinity** datasource plugin
-  (`yesoreyeram-infinity-datasource`, installed automatically via
-  `GF_PLUGINS_PREINSTALL`).
+  (`grafana/dashboards/sonarqube-usage.json`) — a usage/quality snapshot
+  for selected projects: KPI strip (failing gates, LoC, average coverage,
+  vulnerabilities, bugs), analysis recency, quality-gate distribution,
+  ranked issue charts, LoC by project, a formatted measures table (overall
+  and new-code metrics, A–E ratings, links into SonarQube), and separate
+  coverage/duplication vs LoC trend charts. Portfolios (Enterprise/
+  Governance) and recent Compute Engine REPORT tasks are collapsed by
+  default. This data isn't available via Prometheus, so it's queried
+  directly from SonarQube's Web API using Grafana's **Infinity** datasource
+  plugin (`yesoreyeram-infinity-datasource`, installed automatically via
+  `GF_PLUGINS_PREINSTALL`). Snapshot panels ignore the time picker; trend
+  panels use it together with the single-select **Project (history)**
+  variable. The dashboard refreshes every 5 minutes.
 
   To populate this dashboard:
   1. In SonarQube, generate a token: **My Account &gt; Security &gt; Generate
@@ -82,35 +86,42 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   /api/measures/search` endpoint (used by the SonarQube UI itself), which
   could change on a future SonarQube upgrade — if it breaks, the documented
   `GET /api/measures/component` endpoint (one call per project) is the
-  stable fallback. The "Coverage / duplication / size history" panel only
-  supports a single selected project, not "All" (SonarQube's
-  `search_history` endpoint takes one component at a time).
+  stable fallback. Overall measures and new-code measures are two search
+  calls (new-code values live under `period.value`, not `value`) pivoted
+  in Grafana. Trend panels use **Project (history)** because
+  `search_history` accepts one component at a time; pick that project and
+  the dashboard time range (default last 90 days). KPI / table / bar
+  panels are a live snapshot and do not honor the time picker. The
+  Project/Portfolio dropdowns stay static — see below.
 
-  **Project/Portfolio variable behavior:** the `Project` and `Portfolio`
-  variables are Grafana **`custom`** variables (a static, hardcoded
-  comma-separated list of this instance's known keys), not `query`
-  variables backed by a live Infinity datasource call. This was a
-  deliberate, hard-won design decision after extensive debugging: a
-  `query`-type variable against the Infinity datasource — with a live
-  query, the built-in "All" pseudo-value, various `refresh` settings, and
-  explicit static `current`/`options` overrides — repeatedly resolved the
-  interpolated `projectKeys`/`portfolio` query parameter to an **empty
-  string** in the actual outgoing HTTP request (confirmed repeatedly via
-  the exact interpolated URLs captured from panel error responses), which
-  SonarQube rejects with 400 ("Project keys must be provided"). This
-  persisted across a genuinely fresh browser reload and several different
-  variable configurations, and couldn't be fully root-caused without
-  browser devtools access to Grafana's client-side variable engine.
-  Manually selecting concrete values from a dropdown always interpolated
-  correctly throughout the investigation, so the variables were switched
-  to Grafana's simplest, static `custom` type, which has no datasource,
-  no async query, and no "All"-expansion logic to go wrong.
+  **Project/Portfolio variable behavior:** the `Project`,
+  `Project (history)`, and `Portfolio` variables are Grafana **`custom`**
+  variables (a static, hardcoded comma-separated list of this instance's
+  known keys), not `query` variables backed by a live Infinity datasource
+  call. This was a deliberate, hard-won design decision after extensive
+  debugging: a `query`-type variable against the Infinity datasource —
+  with a live query, the built-in "All" pseudo-value, various `refresh`
+  settings, and explicit static `current`/`options` overrides —
+  repeatedly resolved the interpolated `projectKeys`/`portfolio` query
+  parameter to an **empty string** in the actual outgoing HTTP request
+  (confirmed repeatedly via the exact interpolated URLs captured from
+  panel error responses), which SonarQube rejects with 400 ("Project keys
+  must be provided"). This persisted across a genuinely fresh browser
+  reload and several different variable configurations, and couldn't be
+  fully root-caused without browser devtools access to Grafana's
+  client-side variable engine. Manually selecting concrete values from a
+  dropdown always interpolated correctly throughout the investigation, so
+  the variables were switched to Grafana's simplest, static `custom`
+  type, which has no datasource, no async query, and no "All"-expansion
+  logic to go wrong.
 
   **If you add/remove SonarQube projects or portfolios**, the dropdown
   options won't automatically pick them up (this is the trade-off for
   reliability). Update them via **Dashboard settings → Variables →
-  project/portfolio → Custom options**, or edit the `query`/`options`/
-  `current` fields directly in `grafana/dashboards/sonarqube-usage.json`.
+  project / project_history / portfolio → Custom options**, or edit the
+  `query`/`options`/`current` fields directly in
+  `grafana/dashboards/sonarqube-usage.json`. Keep `project` and
+  `project_history` in sync — they list the same keys.
 
   **Troubleshooting an empty usage dashboard:**
   - If every panel and the `Project`/`Portfolio` variables are empty, check
