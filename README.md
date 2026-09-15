@@ -58,6 +58,26 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   entirely by the existing `Prometheus` datasource — no extra setup needed
   beyond the `monitoring` profile.
 
+  **Troubleshooting "Could not find plugin definition for data source" /
+  panels showing the Prometheus datasource as missing:** Grafana's
+  background plugin installer re-checks every preinstalled plugin on each
+  startup — including core-bundled ones like `prometheus`, not just the
+  Infinity plugin added via `GF_PLUGINS_PREINSTALL` — and by default
+  (`preinstall_auto_update`) deletes the currently-working bundled binary
+  *before* fetching its replacement from
+  `storage.googleapis.com`. On networks that intercept/proxy that host
+  (the same condition documented below for the Infinity plugin), the
+  fetch fails, leaving the plugin uninstalled until a startup where the
+  fetch happens to succeed — so every `docker compose down && up` could
+  permanently break this dashboard. `compose.yaml` sets
+  `GF_PLUGINS_PREINSTALL_AUTO_UPDATE=false` to stop Grafana from touching
+  an already-installed bundled plugin; it still installs one fresh if
+  truly missing. If you're recovering from this failure on an existing
+  `grafana_data` volume (the bundled plugin directory lives in the
+  image, not that volume, so a plain restart won't restore it), force a
+  fresh container so it's re-extracted from the image:
+  `docker compose up -d --force-recreate grafana`.
+
 - **SonarQube Usage — Projects & Portfolios**
   (`grafana/dashboards/sonarqube-usage.json`) — a usage/quality snapshot
   for selected projects: KPI strip (failing gates, LoC, average coverage,

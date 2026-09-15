@@ -99,6 +99,21 @@ services:
       # plugin catalog is briefly unreachable (unlike the deprecated,
       # startup-blocking GF_INSTALL_PLUGINS).
       GF_PLUGINS_PREINSTALL: yesoreyeram-infinity-datasource
+      # Grafana's background installer re-checks ALL preinstalled plugins on
+      # every startup -- including core-bundled ones like `prometheus` -- and
+      # by default (preinstall_auto_update=true) deletes the working bundled
+      # binary *before* fetching its replacement from
+      # storage.googleapis.com. On networks that intercept/proxy that host
+      # (see the Infinity plugin troubleshooting note below), the fetch then
+      # fails, leaving the plugin uninstalled until the next successful
+      # startup -- so every `docker compose down && up` permanently breaks
+      # the Server Health dashboard ("Could not find plugin definition for
+      # data source" / "datasource not found") until it happens to succeed.
+      # Disabling auto-update leaves an already-installed bundled plugin
+      # alone; it still installs a plugin fresh if truly missing (e.g. the
+      # first-ever startup, or right after this exact failure mode -- see
+      # the Health dashboard troubleshooting note in the README).
+      GF_PLUGINS_PREINSTALL_AUTO_UPDATE: "false"
       # Consumed via $__env{SONARQUBE_API_TOKEN} in
       # grafana/provisioning/datasources/sonarqube-api.yaml so the token has
       # a single source of truth in .env and is never written to a tracked file.
