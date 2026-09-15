@@ -3,7 +3,7 @@
   "description": "Live quality snapshot plus analysis usage from the SonarQube Web API. KPI, issue, size, and table panels are current measures (they ignore the time picker). Trends use the time range and the single-select Project (history) variable. Portfolios require Enterprise/Governance.",
   "uid": "sonarqube-usage",
   "schemaVersion": 39,
-  "version": 7,
+  "version": 9,
   "editable": true,
   "graphTooltip": 1,
   "preload": false,
@@ -363,7 +363,7 @@
     {
       "id": 16,
       "title": "Analysis recency",
-      "description": "Last analysis time for selected projects (stale first). Uses /api/components/search and the Project variable.",
+      "description": "Last analysis time and revision for selected projects (stale first). Uses /api/projects/search and the Project variable.",
       "type": "table",
       "gridPos": { "h": 8, "w": 16, "x": 0, "y": 5 },
       "datasource": {
@@ -376,14 +376,14 @@
           "type": "json",
           "format": "table",
           "source": "url",
-          "url": "http://sonarqube:9000/api/components/search?qualifiers=TRK&ps=500",
+          "url": "http://sonarqube:9000/api/projects/search?ps=500",
           "url_options": { "method": "GET" },
           "parser": "backend",
           "root_selector": "$.components",
           "columns": [
             { "selector": "key", "text": "Project", "type": "string" },
-            { "selector": "name", "text": "Name", "type": "string" },
-            { "selector": "lastAnalysisDate", "text": "Last analysis", "type": "timestamp" }
+            { "selector": "revision", "text": "Revision", "type": "string" },
+            { "selector": "lastAnalysisDate", "text": "Last analysis", "type": "timestamp", "timestampFormat": "2006-01-02T15:04:05Z0700" }
           ]
         }
       ],
@@ -1377,7 +1377,7 @@
                 { "selector": "componentKey", "text": "componentKey", "type": "string" },
                 { "selector": "componentName", "text": "Project", "type": "string" },
                 { "selector": "status", "text": "Status", "type": "string" },
-                { "selector": "submittedAt", "text": "Submitted", "type": "timestamp" },
+                { "selector": "submittedAt", "text": "Submitted", "type": "timestamp", "timestampFormat": "2006-01-02T15:04:05Z0700" },
                 { "selector": "executionTimeMs", "text": "Duration", "type": "number" },
                 { "selector": "errorMessage", "text": "Error", "type": "string" }
               ]
