@@ -1,0 +1,26 @@
+name: SonarQube Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  sonarqube:
+    # Requires SONAR_TOKEN (repo secret) and SONAR_HOST_URL (repo variable)
+    # to be set, and the SonarQube server (this repo's own compose stack,
+    # tunnelled via ngrok) to be reachable from GitHub-hosted runners at
+    # scan time -- see the "GitHub Integration" section of README.md.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # disable shallow clone for better analysis relevancy
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v7
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
