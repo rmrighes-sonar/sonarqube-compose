@@ -7,3 +7,9 @@ scrape_configs:
       credentials_file: /run/secrets/sonar_system_passcode
     static_configs:
       - targets: ["sonarqube:9000"]
+  # Self-scrape so Grafana can chart Prometheus's own TSDB storage usage
+  # (prometheus_tsdb_storage_blocks_bytes, prometheus_tsdb_retention_limit_bytes,
+  # etc.) against the --storage.tsdb.retention.size cap set in compose.yaml.
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
