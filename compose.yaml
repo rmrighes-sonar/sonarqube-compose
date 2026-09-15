@@ -70,11 +70,45 @@ services:
           memory: 2g
     restart: unless-stopped
 
+  sonarqube-exporter:
+    profiles: ["monitoring"]
+    # Published from the separate rmrighes-sonar/sonarqube-exporter repo's
+    # CI (GitHub Actions -> GHCR) -- private image, needs a one-time
+    # `docker login ghcr.io` on this machine (see README's Usage dashboard
+    # section). Exports SonarQube project/portfolio business data (quality
+    # gates, issues, coverage, ratings) as Prometheus metrics; SonarQube's
+    # own native /api/monitoring/metrics endpoint (scraped directly by the
+    # `prometheus` service below) doesn't cover that data.
+    image: ghcr.io/rmrighes-sonar/sonarqube-exporter:latest
+    depends_on:
+      sonarqube:
+        condition: service_healthy
+    environment:
+      SONARQUBE_URL: http://sonarqube:9000
+      # Same token/source-of-truth as before; now consumed here instead of
+      # by Grafana's (removed) Infinity datasource.
+      SONARQUBE_API_TOKEN: ${SONARQUBE_API_TOKEN}
+    ports:
+      - "127.0.0.1:9091:9091"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9091/metrics"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+    restart: unless-stopped
+
   prometheus:
     profiles: ["monitoring"]
     image: prom/prometheus:latest
     depends_on:
       sonarqube:
+        condition: service_healthy
+      sonarqube-exporter:
         condition: service_healthy
     secrets:
       - sonar_system_passcode
@@ -114,29 +148,25 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_USERS_ALLOW_SIGN_UP: "false"
-      # Installs asynchronously and does not block/fail Grafana startup if the
-      # plugin catalog is briefly unreachable (unlike the deprecated,
-      # startup-blocking GF_INSTALL_PLUGINS).
-      GF_PLUGINS_PREINSTALL: yesoreyeram-infinity-datasource
       # Grafana's background installer re-checks ALL preinstalled plugins on
       # every startup -- including core-bundled ones like `prometheus` -- and
       # by default (preinstall_auto_update=true) deletes the working bundled
       # binary *before* fetching its replacement from
-      # storage.googleapis.com. On networks that intercept/proxy that host
-      # (see the Infinity plugin troubleshooting note below), the fetch then
-      # fails, leaving the plugin uninstalled until the next successful
-      # startup -- so every `docker compose down && up` permanently breaks
-      # the Server Health dashboard ("Could not find plugin definition for
-      # data source" / "datasource not found") until it happens to succeed.
-      # Disabling auto-update leaves an already-installed bundled plugin
-      # alone; it still installs a plugin fresh if truly missing (e.g. the
-      # first-ever startup, or right after this exact failure mode -- see
-      # the Health dashboard troubleshooting note in the README).
+      # storage.googleapis.com. On networks that intercept/proxy that host,
+      # the fetch then fails, leaving the plugin uninstalled until the next
+      # successful startup -- so every `docker compose down && up`
+      # permanently breaks the Server Health dashboard ("Could not find
+      # plugin definition for data source" / "datasource not found") until
+      # it happens to succeed. Disabling auto-update leaves an
+      # already-installed bundled plugin alone; it still installs a plugin
+      # fresh if truly missing (e.g. the first-ever startup, or right after
+      # this exact failure mode -- see the Health dashboard troubleshooting
+      # note in the README). No longer paired with GF_PLUGINS_PREINSTALL
+      # (the Infinity datasource plugin it used to install has been removed
+      # now that SonarQube's project/portfolio data comes through Prometheus
+      # via sonarqube-exporter instead) -- this setting still matters on its
+      # own for the bundled `prometheus` plugin above.
       GF_PLUGINS_PREINSTALL_AUTO_UPDATE: "false"
-      # Consumed via $__env{SONARQUBE_API_TOKEN} in
-      # grafana/provisioning/datasources/sonarqube-api.yaml so the token has
-      # a single source of truth in .env and is never written to a tracked file.
-      SONARQUBE_API_TOKEN: ${SONARQUBE_API_TOKEN}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro

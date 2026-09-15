@@ -9,8 +9,12 @@ Local SonarQube stack for demos/testing, run via Docker Compose.
 - **Core** (always started): `db` (Postgres) → `sonarqube`, connected over
   the default Compose network. Both are only bound to `127.0.0.1`.
 - **`monitoring` profile**: `prometheus` scrapes SonarQube's
-  `/api/monitoring/metrics` endpoint (authenticated via a passcode), and
-  `grafana` visualizes it through two pre-provisioned dashboards — see
+  `/api/monitoring/metrics` endpoint (authenticated via a passcode) for
+  server/process health, and `sonarqube-exporter` (a separate service,
+  published from the sibling
+  [`sonarqube-exporter`](https://github.com/rmrighes-sonar/sonarqube-exporter)
+  repo) for project/portfolio quality data that endpoint doesn't cover.
+  `grafana` visualizes both through two pre-provisioned dashboards — see
   [Dashboards](#dashboards) below.
 - **`share` profile**: `ngrok` tunnels the local SonarQube instance to a
   fixed public hostname, for sharing access outside your machine.
@@ -43,6 +47,7 @@ have started).
 | SonarQube  | http://localhost:9000        | default admin/admin on first login                       |
 | Prometheus | http://localhost:9090        | none (local only)                                         |
 | Grafana    | http://localhost:3000        | `admin` / `GRAFANA_ADMIN_PASSWORD` (from `.env`)          |
+| sonarqube-exporter | http://localhost:9091/metrics | none (local only) — raw Prometheus exposition, for debugging |
 | ngrok      | http://localhost:4040 (inspector) / `NGROK_URL` (public) | n/a |
 
 ## Dashboards
@@ -60,16 +65,15 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
 
   **Troubleshooting "Could not find plugin definition for data source" /
   panels showing the Prometheus datasource as missing:** Grafana's
-  background plugin installer re-checks every preinstalled plugin on each
-  startup — including core-bundled ones like `prometheus`, not just the
-  Infinity plugin added via `GF_PLUGINS_PREINSTALL` — and by default
-  (`preinstall_auto_update`) deletes the currently-working bundled binary
-  *before* fetching its replacement from
-  `storage.googleapis.com`. On networks that intercept/proxy that host
-  (the same condition documented below for the Infinity plugin), the
-  fetch fails, leaving the plugin uninstalled until a startup where the
-  fetch happens to succeed — so every `docker compose down && up` could
-  permanently break this dashboard. `compose.yaml` sets
+  background plugin installer re-checks every core-bundled plugin
+  (including `prometheus`) on every startup regardless of what's set in
+  `GF_PLUGINS_PREINSTALL`, and by default (`preinstall_auto_update`)
+  deletes the currently-working bundled binary *before* fetching its
+  replacement from `storage.googleapis.com`. On networks that
+  intercept/proxy that host, the fetch fails, leaving the plugin
+  uninstalled until a startup where the fetch happens to succeed — so
+  every `docker compose down && up` could permanently break this
+  dashboard. `compose.yaml` sets
   `GF_PLUGINS_PREINSTALL_AUTO_UPDATE=false` to stop Grafana from touching
   an already-installed bundled plugin; it still installs one fresh if
   truly missing. If you're recovering from this failure on an existing
@@ -85,84 +89,77 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   ranked issue charts, LoC by project, a formatted measures table (overall
   and new-code metrics, A–E ratings, links into SonarQube), and separate
   coverage/duplication vs LoC trend charts. Portfolios (Enterprise/
-  Governance) and recent Compute Engine REPORT tasks are collapsed by
-  default. This data isn't available via Prometheus, so it's queried
-  directly from SonarQube's Web API using Grafana's **Infinity** datasource
-  plugin (`yesoreyeram-infinity-datasource`, installed automatically via
-  `GF_PLUGINS_PREINSTALL`). Snapshot panels ignore the time picker; trend
-  panels use it together with the single-select **Project (history)**
-  variable. The dashboard refreshes every 5 minutes.
+  Governance) and last-analysis-status are collapsed by default.
+
+  Backed entirely by the `Prometheus` datasource — the same as the Health
+  dashboard, and the same pattern for every panel in this dashboard now.
+  SonarQube doesn't expose this project/portfolio data via its own
+  `/api/monitoring/metrics` endpoint, so a separate service,
+  **`sonarqube-exporter`** (source:
+  [`rmrighes-sonar/sonarqube-exporter`](https://github.com/rmrighes-sonar/sonarqube-exporter),
+  published as a private image on `ghcr.io`), queries SonarQube's Web API on
+  its own 60s schedule and re-exposes the results as ordinary
+  `sonarqube_project_*`/`sonarqube_portfolio_*` Prometheus metrics —
+  Grafana never calls SonarQube's Web API directly. See that repo's
+  `README.md` for the full metric contract.
+
+  Trend panels use the single-select **Project (history)** variable
+  together with the dashboard's time range (default last 90 days) — this
+  is real Prometheus history retained since the exporter started being
+  scraped, not a call to SonarQube's `search_history` API. KPI/table/bar
+  panels are an *instant* Prometheus query (current state), independent of
+  the time range.
+
+  **Project**, **Project (history)**, and **Portfolio** are real
+  `query`-type variables using `label_values(sonarqube_project_info,
+  project)` / `label_values(sonarqube_portfolio_info, portfolio)` — dynamic
+  and auto-discovering (add/remove a SonarQube project and it appears or
+  disappears here on the next scrape, no dashboard edits needed), and
+  "All" works correctly. This directly replaces the static `custom`-type
+  variables an earlier version of this dashboard needed as a workaround for
+  the Infinity datasource's broken "All"-expansion behavior against this
+  same API — Prometheus's own variable engine doesn't have that problem.
 
   To populate this dashboard:
   1. In SonarQube, generate a token: **My Account &gt; Security &gt; Generate
      Tokens** (or use a dedicated read-only service account). The token's
      user needs Browse permission on the projects/portfolios you want
      charted.
-  2. Set `SONARQUBE_API_TOKEN` in `.env` to that token.
-  3. Restart Grafana: `docker compose up -d grafana`.
+  2. Set `SONARQUBE_API_TOKEN` in `.env` to that token (now consumed by
+     `sonarqube-exporter`, not by Grafana directly).
+  3. **One-time per machine**: log Docker in to GHCR so it can pull the
+     private exporter image (`sonarqube-exporter` is private, matching this
+     repo's own visibility):
+     ```bash
+     gh auth token | docker login ghcr.io -u <your-github-username> --password-stdin
+     ```
+     (Requires the [`gh` CLI](https://cli.github.com/) authenticated with at
+     least `read:packages` scope, and to be a collaborator on that repo. Any
+     [personal access token](https://github.com/settings/tokens) with
+     `read:packages` works the same way in place of `gh auth token`.)
+  4. `docker compose --profile monitoring up -d` (or restart if already
+     running): `docker compose up -d sonarqube-exporter prometheus grafana`.
 
-  Known limitations: the "Projects overview" and "Portfolios overview"
-  tables rely on SonarQube's internal/undocumented `GET
-  /api/measures/search` endpoint (used by the SonarQube UI itself), which
-  could change on a future SonarQube upgrade — if it breaks, the documented
-  `GET /api/measures/component` endpoint (one call per project) is the
-  stable fallback. Overall measures and new-code measures are two search
-  calls (new-code values live under `period.value`, not `value`) pivoted
-  in Grafana. Trend panels use **Project (history)** because
-  `search_history` accepts one component at a time; pick that project and
-  the dashboard time range (default last 90 days). KPI / table / bar
-  panels are a live snapshot and do not honor the time picker. The
-  Project/Portfolio dropdowns stay static — see below.
-
-  **Project/Portfolio variable behavior:** the `Project`,
-  `Project (history)`, and `Portfolio` variables are Grafana **`custom`**
-  variables (a static, hardcoded comma-separated list of this instance's
-  known keys), not `query` variables backed by a live Infinity datasource
-  call. This was a deliberate, hard-won design decision after extensive
-  debugging: a `query`-type variable against the Infinity datasource —
-  with a live query, the built-in "All" pseudo-value, various `refresh`
-  settings, and explicit static `current`/`options` overrides —
-  repeatedly resolved the interpolated `projectKeys`/`portfolio` query
-  parameter to an **empty string** in the actual outgoing HTTP request
-  (confirmed repeatedly via the exact interpolated URLs captured from
-  panel error responses), which SonarQube rejects with 400 ("Project keys
-  must be provided"). This persisted across a genuinely fresh browser
-  reload and several different variable configurations, and couldn't be
-  fully root-caused without browser devtools access to Grafana's
-  client-side variable engine. Manually selecting concrete values from a
-  dropdown always interpolated correctly throughout the investigation, so
-  the variables were switched to Grafana's simplest, static `custom`
-  type, which has no datasource, no async query, and no "All"-expansion
-  logic to go wrong.
-
-  **If you add/remove SonarQube projects or portfolios**, the dropdown
-  options won't automatically pick them up (this is the trade-off for
-  reliability). Update them via **Dashboard settings → Variables →
-  project / project_history / portfolio → Custom options**, or edit the
-  `query`/`options`/`current` fields directly in
-  `grafana/dashboards/sonarqube-usage.json`. Keep `project` and
-  `project_history` in sync — they list the same keys.
+  Known limitations, inherited from `sonarqube-exporter`: the exporter's
+  own `/api/projects/search`, `/api/components/search`, and
+  `/api/measures/search` calls rely on SonarQube's internal/undocumented
+  measures-search endpoint (same caveat that applied when this dashboard
+  called it directly) — see that repo's README for the stable fallback and
+  full trade-offs (no history backfill from before the exporter existed;
+  the old raw "recent analyses" event list is now a last-status-per-project
+  gauge instead of a log with exact timestamps/errors).
 
   **Troubleshooting an empty usage dashboard:**
-  - If every panel and the `Project`/`Portfolio` variables are empty, check
-    whether the Infinity plugin actually installed:
-    `docker compose logs grafana | grep backgroundinstaller`. On networks
-    that intercept/proxy HTTPS to the Grafana plugin catalog
-    (`storage.googleapis.com`), `GF_PLUGINS_PREINSTALL` can silently fail
-    (Grafana itself still starts fine — the panels just show "Plugin not
-    registered"). Workaround: download the matching
-    `yesoreyeram-infinity-datasource` release zip from
-    [GitHub releases](https://github.com/grafana/grafana-infinity-datasource/releases)
-    on a machine with working access, extract it, and
-    `docker cp` the extracted folder into the running container at
-    `/var/lib/grafana/plugins/yesoreyeram-infinity-datasource` (this path is
-    inside the persistent `grafana_data` volume, so it survives container
-    restarts), then `docker compose restart grafana`.
-  - All query/variable URLs in `sonarqube-usage.json` must be **absolute**
-    (e.g. `http://sonarqube:9000/api/...`), not relative paths — Infinity
-    checks the full URL's host against the datasource's `allowedHosts`
-    security setting, and a relative path resolves to an empty host, which
-    gets silently rejected.
+  - Check `sonarqube_exporter_up` in Prometheus/Explore — `0` means the
+    exporter's last scrape of SonarQube's Web API failed; check
+    `docker compose logs sonarqube-exporter` for the specific API error
+    (commonly an invalid/expired `SONARQUBE_API_TOKEN`, or the token's user
+    lacking Browse permission).
+  - If `sonarqube-exporter` won't even start (image pull error), confirm
+    step 3 above — `docker compose logs sonarqube-exporter` will show
+    `unauthorized`/`denied` if the machine isn't logged in to `ghcr.io`.
+  - Check Prometheus's Targets page (`http://localhost:9090/targets`) for
+    the `sonarqube-projects` job's health and `lastError`.
 
 ## Prerequisites
 
