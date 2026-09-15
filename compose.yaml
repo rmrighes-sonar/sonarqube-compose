@@ -41,6 +41,16 @@ services:
       - sonarqube_data:/opt/sonarqube/data
       - sonarqube_extensions:/opt/sonarqube/extensions
       - sonarqube_logs:/opt/sonarqube/logs
+    # The image also declares /opt/sonarqube/temp as a VOLUME (scratch space
+    # for report processing / plugin extraction). Left unmapped, Docker
+    # creates a fresh ANONYMOUS volume for it on every container recreate and
+    # orphans the previous one -- a permanent, unbounded disk leak on the
+    # shared Docker Desktop VM disk (confirmed via `docker system df -v`
+    # after this stack's normal restarts). tmpfs is the right fix: temp data
+    # doesn't need to survive a restart, so this keeps it in RAM instead of
+    # ever touching disk, and it's cleared automatically on every restart.
+    tmpfs:
+      - /opt/sonarqube/temp:size=1g
     ulimits:
       nofile:
         soft: 65536
@@ -68,6 +78,15 @@ services:
         condition: service_healthy
     secrets:
       - sonar_system_passcode
+    # Replicates the image's default CMD and adds a size-based retention cap
+    # so prometheus_data can't grow unbounded on the shared Docker Desktop
+    # VM disk -- unset, Prometheus defaults to 15 days of *unbounded* size.
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.size=1GB"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
