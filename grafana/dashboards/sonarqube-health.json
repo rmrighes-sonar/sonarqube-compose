@@ -2,7 +2,8 @@
   "title": "SonarQube Server Health",
   "uid": "sonarqube-health",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
+  "tags": ["sonarqube", "health"],
   "time": { "from": "now-6h", "to": "now" },
   "panels": [
     {
