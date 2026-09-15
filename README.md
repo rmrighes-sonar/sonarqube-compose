@@ -161,6 +161,72 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   - Check Prometheus's Targets page (`http://localhost:9090/targets`) for
     the `sonarqube-projects` job's health and `lastError`.
 
+## GitHub Integration
+
+This SonarQube instance can be bound to GitHub (personal account
+`rmrighes-sonar`) via a GitHub App, enabling repository import, branch/PR
+analysis, and pull request decoration (quality gate status posted as a
+GitHub check/comment). CI scanning workflows in the integrated repos
+(`sonarqube-compose`, `sonarqube-exporter`) push analysis results to this
+server over the `share` profile's `ngrok` tunnel, since GitHub-hosted
+Actions runners can't reach `localhost` or your LAN directly.
+
+**Why `ngrok` is required here:** two things need the local SonarQube
+instance to be publicly reachable —
+- GitHub's "Install & Authorize" redirect during GitHub App creation (a
+  browser round-trip back to SonarQube).
+- GitHub-hosted Actions runners calling `SONAR_HOST_URL` to push analysis
+  results.
+
+PR decoration itself (SonarQube posting a check/comment) is an *outbound*
+call from SonarQube to GitHub's API, so it doesn't need any extra exposure
+beyond the above.
+
+### One-time setup (manual, in a browser — not scriptable)
+
+1. Start the tunnel: `docker compose --profile share up -d`, and confirm
+   `NGROK_URL` (from `.env`) is live.
+2. In SonarQube: **Administration > Configuration > General Settings >
+   General**, set **Server base URL** to your `NGROK_URL`. Required, or the
+   GitHub App redirect and PR-decoration links break.
+3. In SonarQube: **Administration > Configuration > General Settings >
+   DevOps Platform Integrations > GitHub tab > Create app for me**. This
+   redirects to GitHub, generates a manifest-based GitHub App under your
+   `rmrighes-sonar` account, and on **Install & Authorize** saves the App
+   ID / Client ID / Client Secret / Private Key back into a new GitHub
+   Configuration record automatically.
+   - When prompted where to install the app, choose **All repositories**
+     so future repos are covered automatically, not just the current two.
+4. Back in SonarQube: **Projects > Create Project > GitHub**, select the
+   new configuration, and import `rmrighes-sonar/sonarqube-compose` and
+   `rmrighes-sonar/sonarqube-exporter`. This binds each project to its
+   GitHub repo (enables branch/PR analysis + decoration once a scan runs).
+5. Generate a project analysis token per repo: **My Account > Security >
+   Generate Tokens** (type: Project Analysis Token) — or reuse a single
+   token across both repos if you prefer less setup.
+6. Push the CI connection settings into each repo (no browser needed):
+   ```bash
+   gh secret set SONAR_TOKEN -R rmrighes-sonar/sonarqube-exporter -b "<token>"
+   gh variable set SONAR_HOST_URL -R rmrighes-sonar/sonarqube-exporter -b "<NGROK_URL>"
+   gh secret set SONAR_TOKEN -R rmrighes-sonar/sonarqube-compose -b "<token>"
+   gh variable set SONAR_HOST_URL -R rmrighes-sonar/sonarqube-compose -b "<NGROK_URL>"
+   ```
+
+### CI scanning
+
+Both repos have a `sonar-project.properties` file and a GitHub Actions job
+(using `SonarSource/sonarqube-scan-action`) that scans on `push` and
+`pull_request` and pushes results to `SONAR_HOST_URL`. See each repo's
+`.github/workflows/` for the exact job.
+
+**Caveats:**
+- CI scans only succeed while the local Docker stack *and* the `ngrok`
+  tunnel are both running — GitHub-hosted runners can't reach SonarQube
+  otherwise.
+- `NGROK_URL` and the SonarQube Server base URL must stay in sync: if the
+  ngrok URL ever changes (new plan/session), update both the SonarQube
+  Server base URL setting and the `SONAR_HOST_URL` repo variables.
+
 ## Prerequisites
 
 SonarQube bundles an embedded Elasticsearch instance, which requires the
