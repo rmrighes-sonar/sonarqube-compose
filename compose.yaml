@@ -35,6 +35,12 @@ services:
       SONAR_JDBC_USERNAME: ${POSTGRES_USER}
       SONAR_JDBC_PASSWORD: ${POSTGRES_PASSWORD}
       SONAR_WEB_SYSTEMPASSCODE: ${SONAR_SYSTEM_PASSCODE}
+      # Wires SonarQube's hosted MCP proxy (Administration > System Info >
+      # System > MCP) to the `mcp` service below. Harmless when the `mcp`
+      # profile isn't running -- just shows Enabled: true, Healthy: false,
+      # same as before this was set.
+      SONAR_MCP_ENABLED: "true"
+      SONAR_MCP_SERVERURL: "http://mcp:8080"
     ports:
       - "127.0.0.1:9000:9000"
     volumes:
@@ -68,6 +74,35 @@ services:
           memory: 4g
         reservations:
           memory: 2g
+    restart: unless-stopped
+
+  mcp:
+    profiles: ["mcp"]
+    # SonarQube Server's hosted MCP proxy (wired above via SONAR_MCP_*)
+    # needs this companion server -- SonarQube exposes /mcp itself and
+    # forwards requests to this container internally. AI agents (e.g.
+    # Cursor) connect to http://localhost:9000/mcp, never to this service
+    # directly -- it has no published port.
+    #
+    # MCP_VERSION must match the SonarQube Server version's compatible MCP
+    # Server release -- see the compatibility table in
+    # https://docs.sonarsource.com/sonarqube-mcp-server/setup/sonarqube-server-hosted
+    image: sonarsource/sonarqube-mcp:${MCP_VERSION}
+    depends_on:
+      sonarqube:
+        condition: service_healthy
+    environment:
+      STORAGE_PATH: /data
+      SONARQUBE_URL: http://sonarqube:9000
+      SONARQUBE_HTTP_HOST: 0.0.0.0
+      SONARQUBE_HTTP_PORT: 8080
+      SONARQUBE_TRANSPORT: http
+    volumes:
+      - mcp_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 256m
     restart: unless-stopped
 
   sonarqube-exporter:
@@ -209,6 +244,7 @@ volumes:
   sonarqube_logs:
   prometheus_data:
   grafana_data:
+  mcp_data:
 
 secrets:
   # Sourced directly from the SONAR_SYSTEM_PASSCODE env var (set in .env) so
