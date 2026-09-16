@@ -4,10 +4,6 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: write
-  pull-requests: write
-
 jobs:
   release-please:
     # Maintains a standing "Release PR" summarizing every Conventional
@@ -18,6 +14,9 @@ jobs:
     # (unlike sonarqube-exporter), so a release here is just a version
     # marker + changelog for the stack's config/docs/scripts.
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Release Please
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
