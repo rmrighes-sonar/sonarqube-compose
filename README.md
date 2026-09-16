@@ -227,6 +227,41 @@ Both repos have a `sonar-project.properties` file and a GitHub Actions job
   ngrok URL ever changes (new plan/session), update both the SonarQube
   Server base URL setting and the `SONAR_HOST_URL` repo variables.
 
+## MCP Server
+
+SonarQube Server (2026.3+, Developer/Enterprise/Data Center editions)
+bundles a hosted MCP ([Model Context Protocol](https://modelcontextprotocol.io/))
+proxy, letting AI coding agents (e.g. Cursor) query issues, quality gates,
+and measures directly, through a single `/mcp` endpoint that SonarQube
+itself exposes. It's opt-in via the `mcp` profile — it adds another
+container (memory) that most sessions don't need running.
+
+**No `ngrok`/`share` profile involved.** Unlike the GitHub integration,
+this doesn't need public exposure: an MCP client (Cursor) runs locally on
+the same machine as this stack, and `sonarqube`'s port is already published
+to `127.0.0.1:9000` — so it connects straight to `http://localhost:9000/mcp`.
+The ngrok URL (`https://<NGROK_URL>/mcp`) would only matter if connecting
+an MCP client from a different machine.
+
+1. Set `MCP_VERSION` in `.env` to the MCP Server version compatible with
+   your `SONARQUBE_IMAGE` version — see the
+   [compatibility table](https://docs.sonarsource.com/sonarqube-mcp-server/setup/sonarqube-server-hosted).
+2. `docker compose --profile mcp up -d` (combine with other profiles as
+   needed, e.g. `--profile monitoring --profile mcp`).
+3. In SonarQube, generate a user token: **My Account > Security > Generate
+   Tokens**.
+4. Configure your MCP client. For Cursor, use SonarQube's
+   [MCP config generator](https://docs.sonarsource.com/sonarqube-mcp-server/setup/sonarqube-server-hosted#step-2-configure-your-agent) —
+   select **Remote server (HTTP)**, server URL `http://localhost:9000/mcp`,
+   and your token from step 3. Restart Cursor and run `/mcp` to confirm the
+   SonarQube tools are available.
+
+**Verify:** In SonarQube, **Administration > System Info > System > MCP**
+should show `Enabled: true, Healthy: true` once the `mcp` container is up
+(it shows `Healthy: false` whenever the profile isn't running — expected,
+not an error). `docker compose logs mcp` for troubleshooting the container
+itself.
+
 ## Releases
 
 Versioning follows [Semantic Versioning](https://semver.org/), automated by
