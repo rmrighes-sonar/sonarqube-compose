@@ -227,6 +227,34 @@ Both repos have a `sonar-project.properties` file and a GitHub Actions job
   ngrok URL ever changes (new plan/session), update both the SonarQube
   Server base URL setting and the `SONAR_HOST_URL` repo variables.
 
+## Releases
+
+Versioning follows [Semantic Versioning](https://semver.org/), automated by
+[release-please](https://github.com/googleapis/release-please) (see
+`.github/workflows/release-please.yml`,
+[release-please-config.json](release-please-config.json), and
+[.release-please-manifest.json](.release-please-manifest.json)). Unlike
+`sonarqube-exporter`, this repo doesn't publish a build artifact of its own
+-- a release here is just a version marker + generated `CHANGELOG.md` entry
+for the stack's compose/dashboard/script configuration, useful as a
+"known-good checkpoint" to reference or roll back to.
+
+To get a correct version bump, commits to `main` must follow
+[Conventional Commits](https://www.conventionalcommits.org/):
+
+- `fix:` -- patch release (e.g. a dashboard/healthcheck bug fix).
+- `feat:` -- minor release (e.g. a new dashboard or compose service).
+- `fix!:` / `feat!:` / a `BREAKING CHANGE:` footer -- major release (e.g. a
+  renamed environment variable or removed service).
+- `chore:`, `docs:`, `refactor:`, `test:`, `ci:` -- no release triggered on
+  their own.
+
+release-please maintains a standing "Release PR" that accumulates changes
+since the last release; merging it cuts the actual git tag, GitHub Release,
+and `CHANGELOG.md` entry. (This repo previously had one ad hoc, non-standard
+tag, `VER-1.0.0` -- harmless leftover, safe to ignore; release-please's own
+tags follow the standard `vX.Y.Z` format going forward.)
+
 ## Prerequisites
 
 SonarQube bundles an embedded Elasticsearch instance, which requires the
