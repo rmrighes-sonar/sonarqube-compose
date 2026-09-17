@@ -13,12 +13,12 @@ scrape_configs:
   - job_name: prometheus
     static_configs:
       - targets: ["localhost:9090"]
-  # sonarqube-exporter (separate repo: rmrighes-sonar/sonarqube-exporter)
+  # sonarqube-prometheus-exporter (separate repo: rmrighes-sonar/sonarqube-prometheus-exporter)
   # covers project/portfolio business data (quality gates, issues, coverage,
   # ratings) that the `sonarqube` job above doesn't expose. A longer
   # scrape_interval than the 15s default: this data changes per-analysis,
   # not continuously, and each scrape costs SonarQube several Web API calls.
-  - job_name: sonarqube-projects
+  - job_name: sonarqube-prometheus-exporter
     scrape_interval: 60s
     static_configs:
-      - targets: ["sonarqube-exporter:9091"]
+      - targets: ["sonarqube-prometheus-exporter:9091"]

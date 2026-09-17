@@ -11,7 +11,7 @@ jobs:
     # actually cuts the tag + GitHub Release (see release-please-config.json
     # / .release-please-manifest.json). Ordinary commits to main just update
     # the pending PR. This repo has no build/publish artifact of its own
-    # (unlike sonarqube-exporter), so a release here is just a version
+    # (unlike sonarqube-prometheus-exporter), so a release here is just a version
     # marker + changelog for the stack's config/docs/scripts.
     runs-on: ubuntu-latest
     permissions:

@@ -10,9 +10,9 @@ Local SonarQube stack for demos/testing, run via Docker Compose.
   the default Compose network. Both are only bound to `127.0.0.1`.
 - **`monitoring` profile**: `prometheus` scrapes SonarQube's
   `/api/monitoring/metrics` endpoint (authenticated via a passcode) for
-  server/process health, and `sonarqube-exporter` (a separate service,
+  server/process health, and `sonarqube-prometheus-exporter` (a separate service,
   published from the sibling
-  [`sonarqube-exporter`](https://github.com/rmrighes-sonar/sonarqube-exporter)
+  [`sonarqube-prometheus-exporter`](https://github.com/rmrighes-sonar/sonarqube-prometheus-exporter)
   repo) for project/portfolio quality data that endpoint doesn't cover.
   `grafana` visualizes both through two pre-provisioned dashboards — see
   [Dashboards](#dashboards) below.
@@ -47,7 +47,7 @@ have started).
 | SonarQube  | http://localhost:9000        | default admin/admin on first login                       |
 | Prometheus | http://localhost:9090        | none (local only)                                         |
 | Grafana    | http://localhost:3000        | `admin` / `GRAFANA_ADMIN_PASSWORD` (from `.env`)          |
-| sonarqube-exporter | http://localhost:9091/metrics | none (local only) — raw Prometheus exposition, for debugging |
+| sonarqube-prometheus-exporter | http://localhost:9091/metrics | none (local only) — raw Prometheus exposition, for debugging |
 | ngrok      | http://localhost:4040 (inspector) / `NGROK_URL` (public) | n/a |
 
 ## Dashboards
@@ -95,8 +95,8 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   dashboard, and the same pattern for every panel in this dashboard now.
   SonarQube doesn't expose this project/portfolio data via its own
   `/api/monitoring/metrics` endpoint, so a separate service,
-  **`sonarqube-exporter`** (source:
-  [`rmrighes-sonar/sonarqube-exporter`](https://github.com/rmrighes-sonar/sonarqube-exporter),
+  **`sonarqube-prometheus-exporter`** (source:
+  [`rmrighes-sonar/sonarqube-prometheus-exporter`](https://github.com/rmrighes-sonar/sonarqube-prometheus-exporter),
   published as a private image on `ghcr.io`), queries SonarQube's Web API on
   its own 60s schedule and re-exposes the results as ordinary
   `sonarqube_project_*`/`sonarqube_portfolio_*` Prometheus metrics —
@@ -126,9 +126,9 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
      user needs Browse permission on the projects/portfolios you want
      charted.
   2. Set `SONARQUBE_API_TOKEN` in `.env` to that token (now consumed by
-     `sonarqube-exporter`, not by Grafana directly).
+     `sonarqube-prometheus-exporter`, not by Grafana directly).
   3. **One-time per machine**: log Docker in to GHCR so it can pull the
-     private exporter image (`sonarqube-exporter` is private, matching this
+     private exporter image (`sonarqube-prometheus-exporter` is private, matching this
      repo's own visibility):
      ```bash
      gh auth token | docker login ghcr.io -u <your-github-username> --password-stdin
@@ -138,9 +138,9 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
      [personal access token](https://github.com/settings/tokens) with
      `read:packages` works the same way in place of `gh auth token`.)
   4. `docker compose --profile monitoring up -d` (or restart if already
-     running): `docker compose up -d sonarqube-exporter prometheus grafana`.
+     running): `docker compose up -d sonarqube-prometheus-exporter prometheus grafana`.
 
-  Known limitations, inherited from `sonarqube-exporter`: the exporter's
+  Known limitations, inherited from `sonarqube-prometheus-exporter`: the exporter's
   own `/api/projects/search`, `/api/components/search`, and
   `/api/measures/search` calls rely on SonarQube's internal/undocumented
   measures-search endpoint (same caveat that applied when this dashboard
@@ -150,16 +150,16 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   gauge instead of a log with exact timestamps/errors).
 
   **Troubleshooting an empty usage dashboard:**
-  - Check `sonarqube_exporter_up` in Prometheus/Explore — `0` means the
+  - Check `sonarqube_prometheus_exporter_up` in Prometheus/Explore — `0` means the
     exporter's last scrape of SonarQube's Web API failed; check
-    `docker compose logs sonarqube-exporter` for the specific API error
+    `docker compose logs sonarqube-prometheus-exporter` for the specific API error
     (commonly an invalid/expired `SONARQUBE_API_TOKEN`, or the token's user
     lacking Browse permission).
-  - If `sonarqube-exporter` won't even start (image pull error), confirm
-    step 3 above — `docker compose logs sonarqube-exporter` will show
+  - If `sonarqube-prometheus-exporter` won't even start (image pull error), confirm
+    step 3 above — `docker compose logs sonarqube-prometheus-exporter` will show
     `unauthorized`/`denied` if the machine isn't logged in to `ghcr.io`.
   - Check Prometheus's Targets page (`http://localhost:9090/targets`) for
-    the `sonarqube-projects` job's health and `lastError`.
+    the `sonarqube-prometheus-exporter` job's health and `lastError`.
 
 ## GitHub Integration
 
@@ -167,7 +167,7 @@ This SonarQube instance can be bound to GitHub (personal account
 `rmrighes-sonar`) via a GitHub App, enabling repository import, branch/PR
 analysis, and pull request decoration (quality gate status posted as a
 GitHub check/comment). CI scanning workflows in the integrated repos
-(`sonarqube-compose`, `sonarqube-exporter`) push analysis results to this
+(`sonarqube-compose`, `sonarqube-prometheus-exporter`) push analysis results to this
 server over the `share` profile's `ngrok` tunnel, since GitHub-hosted
 Actions runners can't reach `localhost` or your LAN directly.
 
@@ -199,15 +199,15 @@ beyond the above.
      so future repos are covered automatically, not just the current two.
 4. Back in SonarQube: **Projects > Create Project > GitHub**, select the
    new configuration, and import `rmrighes-sonar/sonarqube-compose` and
-   `rmrighes-sonar/sonarqube-exporter`. This binds each project to its
+   `rmrighes-sonar/sonarqube-prometheus-exporter`. This binds each project to its
    GitHub repo (enables branch/PR analysis + decoration once a scan runs).
 5. Generate a project analysis token per repo: **My Account > Security >
    Generate Tokens** (type: Project Analysis Token) — or reuse a single
    token across both repos if you prefer less setup.
 6. Push the CI connection settings into each repo (no browser needed):
    ```bash
-   gh secret set SONAR_TOKEN -R rmrighes-sonar/sonarqube-exporter -b "<token>"
-   gh variable set SONAR_HOST_URL -R rmrighes-sonar/sonarqube-exporter -b "<NGROK_URL>"
+   gh secret set SONAR_TOKEN -R rmrighes-sonar/sonarqube-prometheus-exporter -b "<token>"
+   gh variable set SONAR_HOST_URL -R rmrighes-sonar/sonarqube-prometheus-exporter -b "<NGROK_URL>"
    gh secret set SONAR_TOKEN -R rmrighes-sonar/sonarqube-compose -b "<token>"
    gh variable set SONAR_HOST_URL -R rmrighes-sonar/sonarqube-compose -b "<NGROK_URL>"
    ```
@@ -269,7 +269,7 @@ Versioning follows [Semantic Versioning](https://semver.org/), automated by
 `.github/workflows/release-please.yml`,
 [release-please-config.json](release-please-config.json), and
 [.release-please-manifest.json](.release-please-manifest.json)). Unlike
-`sonarqube-exporter`, this repo doesn't publish a build artifact of its own
+`sonarqube-prometheus-exporter`, this repo doesn't publish a build artifact of its own
 -- a release here is just a version marker + generated `CHANGELOG.md` entry
 for the stack's compose/dashboard/script configuration, useful as a
 "known-good checkpoint" to reference or roll back to.

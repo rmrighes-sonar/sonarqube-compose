@@ -105,16 +105,16 @@ services:
           memory: 256m
     restart: unless-stopped
 
-  sonarqube-exporter:
+  sonarqube-prometheus-exporter:
     profiles: ["monitoring"]
-    # Published from the separate rmrighes-sonar/sonarqube-exporter repo's
+    # Published from the separate rmrighes-sonar/sonarqube-prometheus-exporter repo's
     # CI (GitHub Actions -> GHCR) -- private image, needs a one-time
     # `docker login ghcr.io` on this machine (see README's Usage dashboard
     # section). Exports SonarQube project/portfolio business data (quality
     # gates, issues, coverage, ratings) as Prometheus metrics; SonarQube's
     # own native /api/monitoring/metrics endpoint (scraped directly by the
     # `prometheus` service below) doesn't cover that data.
-    image: ghcr.io/rmrighes-sonar/sonarqube-exporter:latest
+    image: ghcr.io/rmrighes-sonar/sonarqube-prometheus-exporter:latest
     depends_on:
       sonarqube:
         condition: service_healthy
@@ -143,7 +143,7 @@ services:
     depends_on:
       sonarqube:
         condition: service_healthy
-      sonarqube-exporter:
+      sonarqube-prometheus-exporter:
         condition: service_healthy
     secrets:
       - sonar_system_passcode
@@ -199,7 +199,7 @@ services:
       # note in the README). No longer paired with GF_PLUGINS_PREINSTALL
       # (the Infinity datasource plugin it used to install has been removed
       # now that SonarQube's project/portfolio data comes through Prometheus
-      # via sonarqube-exporter instead) -- this setting still matters on its
+      # via sonarqube-prometheus-exporter instead) -- this setting still matters on its
       # own for the bundled `prometheus` plugin above.
       GF_PLUGINS_PREINSTALL_AUTO_UPDATE: "false"
     volumes:

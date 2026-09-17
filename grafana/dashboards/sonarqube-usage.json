@@ -1,6 +1,6 @@
 {
   "title": "SonarQube Usage - Projects & Portfolios",
-  "description": "Quality/usage snapshot for SonarQube projects and portfolios. Backed entirely by the Prometheus datasource: sonarqube_project_*/sonarqube_portfolio_* metrics come from the sonarqube-exporter service (github.com/rmrighes-sonar/sonarqube-exporter), scraped every 60s -- not from a direct SonarQube API call on every dashboard view. See that repo's README for the full metric contract.",
+  "description": "Quality/usage snapshot for SonarQube projects and portfolios. Backed entirely by the Prometheus datasource: sonarqube_project_*/sonarqube_portfolio_* metrics come from the sonarqube-prometheus-exporter service (github.com/rmrighes-sonar/sonarqube-prometheus-exporter), scraped every 60s -- not from a direct SonarQube API call on every dashboard view. See that repo's README for the full metric contract.",
   "uid": "sonarqube-usage",
   "schemaVersion": 39,
   "version": 1,
@@ -497,7 +497,7 @@
     {
       "id": 2,
       "title": "Projects overview",
-      "description": "One Prometheus instant-query per metric, joined by the project label (Transformations: Join by field, outer, on 'project'). Every field here is exactly what sonarqube-exporter emits -- no pivoting/renaming of ambiguous combined field names, unlike the Infinity-datasource version this replaced.",
+      "description": "One Prometheus instant-query per metric, joined by the project label (Transformations: Join by field, outer, on 'project'). Every field here is exactly what sonarqube-prometheus-exporter emits -- no pivoting/renaming of ambiguous combined field names, unlike the Infinity-datasource version this replaced.",
       "type": "table",
       "gridPos": { "h": 12, "w": 24, "x": 0, "y": 32 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -703,7 +703,7 @@
     {
       "id": 14,
       "title": "Coverage and duplication",
-      "description": "Real Prometheus history (retained since sonarqube-exporter started being scraped) for Project (history) -- no dependency on SonarQube's search_history API anymore.",
+      "description": "Real Prometheus history (retained since sonarqube-prometheus-exporter started being scraped) for Project (history) -- no dependency on SonarQube's search_history API anymore.",
       "type": "timeseries",
       "gridPos": { "h": 9, "w": 12, "x": 0, "y": 45 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -889,7 +889,7 @@
         {
           "id": 12,
           "title": "Last analysis status by project",
-          "description": "sonarqube_project_last_analysis_status -- derived from the most recent Compute Engine task per project. This replaces the old raw 'recent analyses' event list: exact timestamps/durations/error messages for individual tasks aren't re-exposed as metrics (see sonarqube-exporter's README trade-offs). For that level of detail, cross-reference the Server Health dashboard's Compute Engine panels (native SonarQube metrics, unaffected by this change) or query SonarQube's /api/ce/activity directly.",
+          "description": "sonarqube_project_last_analysis_status -- derived from the most recent Compute Engine task per project. This replaces the old raw 'recent analyses' event list: exact timestamps/durations/error messages for individual tasks aren't re-exposed as metrics (see sonarqube-prometheus-exporter's README trade-offs). For that level of detail, cross-reference the Server Health dashboard's Compute Engine panels (native SonarQube metrics, unaffected by this change) or query SonarQube's /api/ce/activity directly.",
           "type": "table",
           "gridPos": { "h": 9, "w": 24, "x": 0, "y": 56 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
