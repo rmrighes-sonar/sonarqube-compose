@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.2.0...v0.3.0) (2026-09-17)
+
+
+### Features
+
+* consume sonarqube-prometheus-exporter by name ([ab7c258](https://github.com/rmrighes-sonar/sonarqube-compose/commit/ab7c258dbbe5ca674151916056a9718a11a65d64))
+
 ## [0.2.0](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.1.1...v0.2.0) (2026-09-16)
 
 
