@@ -48,10 +48,11 @@
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
         "query": "label_values(sonarqube_project_info, project)",
-        "refresh": 2,
+        "refresh": 1,
         "sort": 1,
         "multi": false,
-        "includeAll": false
+        "includeAll": false,
+        "current": { "text": "gradle-basic", "value": "gradle-basic" }
       },
       {
         "name": "portfolio",
@@ -111,7 +112,7 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "textMode": "value_and_name"
+        "textMode": "value"
       }
     },
     {
@@ -141,7 +142,7 @@
         "colorMode": "background",
         "graphMode": "none",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "textMode": "value_and_name"
+        "textMode": "value"
       }
     },
     {
@@ -181,7 +182,7 @@
         "colorMode": "background",
         "graphMode": "none",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "textMode": "value_and_name"
+        "textMode": "value"
       }
     },
     {
@@ -218,7 +219,7 @@
         "colorMode": "background",
         "graphMode": "none",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "textMode": "value_and_name"
+        "textMode": "value"
       }
     },
     {
@@ -255,7 +256,7 @@
         "colorMode": "background",
         "graphMode": "none",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "textMode": "value_and_name"
+        "textMode": "value"
       }
     },
     {
@@ -277,7 +278,7 @@
         {
           "id": "organize",
           "options": {
-            "excludeByName": { "Time": true, "__name__": true },
+            "excludeByName": { "Time": true, "__name__": true, "instance": true, "job": true },
             "indexByName": { "project": 0, "name": 1, "revision": 2, "Value": 3 },
             "renameByName": {
               "project": "Project",
@@ -532,7 +533,15 @@
               "__name__": true, "__name__ 1": true, "__name__ 2": true, "__name__ 3": true,
               "__name__ 4": true, "__name__ 5": true, "__name__ 6": true, "__name__ 7": true,
               "__name__ 8": true, "__name__ 9": true, "__name__ 10": true, "__name__ 11": true,
-              "__name__ 12": true, "__name__ 13": true, "__name__ 14": true
+              "__name__ 12": true, "__name__ 13": true, "__name__ 14": true,
+              "instance": true, "instance 1": true, "instance 2": true, "instance 3": true,
+              "instance 4": true, "instance 5": true, "instance 6": true, "instance 7": true,
+              "instance 8": true, "instance 9": true, "instance 10": true, "instance 11": true,
+              "instance 12": true, "instance 13": true, "instance 14": true,
+              "job": true, "job 1": true, "job 2": true, "job 3": true, "job 4": true,
+              "job 5": true, "job 6": true, "job 7": true, "job 8": true, "job 9": true,
+              "job 10": true, "job 11": true, "job 12": true, "job 13": true, "job 14": true,
+              "Value #A": true
             },
             "indexByName": {
               "project": 0,
@@ -703,8 +712,9 @@
     {
       "id": 14,
       "title": "Coverage and duplication",
-      "description": "Real Prometheus history (retained since sonarqube-prometheus-exporter started being scraped) for Project (history) -- no dependency on SonarQube's search_history API anymore.",
+      "description": "Real Prometheus history (retained since sonarqube-prometheus-exporter started being scraped) for Project (history) -- no dependency on SonarQube's search_history API anymore. Overrides the dashboard time range to the last 6h: over the dashboard's 90d default the calculated step is coarse (hours) and its timezone-aligned grid can miss the still-short real history on a freshly started stack, showing 'No data' even though the metric is live. A short, fixed window keeps the step fine-grained enough to always catch it.",
       "type": "timeseries",
+      "timeFrom": "6h",
       "gridPos": { "h": 9, "w": 12, "x": 0, "y": 45 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -741,8 +751,9 @@
     {
       "id": 15,
       "title": "Lines of code",
-      "description": "Real Prometheus history for Project (history).",
+      "description": "Real Prometheus history for Project (history). Overrides the dashboard time range to the last 6h -- see the 'Coverage and duplication' panel description for why.",
       "type": "timeseries",
+      "timeFrom": "6h",
       "gridPos": { "h": 9, "w": 12, "x": 12, "y": 45 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -800,7 +811,12 @@
                   "Time": true, "Time 1": true, "Time 2": true, "Time 3": true, "Time 4": true,
                   "Time 5": true, "Time 6": true, "Time 7": true, "Time 8": true,
                   "__name__": true, "__name__ 1": true, "__name__ 2": true, "__name__ 3": true,
-                  "__name__ 4": true, "__name__ 5": true, "__name__ 6": true, "__name__ 7": true, "__name__ 8": true
+                  "__name__ 4": true, "__name__ 5": true, "__name__ 6": true, "__name__ 7": true, "__name__ 8": true,
+                  "instance": true, "instance 1": true, "instance 2": true, "instance 3": true,
+                  "instance 4": true, "instance 5": true, "instance 6": true, "instance 7": true, "instance 8": true,
+                  "job": true, "job 1": true, "job 2": true, "job 3": true,
+                  "job 4": true, "job 5": true, "job 6": true, "job 7": true, "job 8": true,
+                  "Value #A": true
                 },
                 "indexByName": {
                   "portfolio": 0,
@@ -905,7 +921,7 @@
             {
               "id": "organize",
               "options": {
-                "excludeByName": { "Time": true, "Value": true, "__name__": true },
+                "excludeByName": { "Time": true, "Value": true, "__name__": true, "instance": true, "job": true },
                 "indexByName": { "project": 0, "status": 1 },
                 "renameByName": { "project": "Project", "status": "Status" }
               }
