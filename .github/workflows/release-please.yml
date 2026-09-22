@@ -23,3 +23,13 @@ jobs:
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+          # Without this, the PR is authored by github-actions[bot] (via the
+          # default GITHUB_TOKEN below), which GitHub now gates behind manual
+          # approval on every release ("Bot-created pull requests can run
+          # workflows if approved", 2026-06-11) -- even for same-repo, non-fork
+          # branches. Add a repo secret RELEASE_PLEASE_TOKEN (fine-grained PAT
+          # scoped to this repo with Contents: read/write + Pull requests:
+          # read/write, or a GitHub App installation token) to have the PR
+          # authored by a trusted identity instead, removing the approval gate.
+          # Falls back to GITHUB_TOKEN (today's behavior) until that secret exists.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}

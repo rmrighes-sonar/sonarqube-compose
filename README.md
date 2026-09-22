@@ -297,6 +297,20 @@ and `CHANGELOG.md` entry. (This repo previously had one ad hoc, non-standard
 tag, `VER-1.0.0` -- harmless leftover, safe to ignore; release-please's own
 tags follow the standard `vX.Y.Z` format going forward.)
 
+**CI approval gate on the Release PR:** without a `RELEASE_PLEASE_TOKEN`
+repo secret, the Release PR is authored by `github-actions[bot]` (via the
+default `GITHUB_TOKEN`), and GitHub requires a maintainer to manually
+approve its `pull_request`-triggered CI runs before they execute --
+[a same-repo, non-fork security gate GitHub added
+2026-06-11](https://github.blog/changelog/2026-06-11-bot-created-pull-requests-can-run-workflows-if-approved/)
+that applies to every bot-authored PR, not just first-time contributors.
+This recurs on every release until fixed. To remove it, add a repo secret
+`RELEASE_PLEASE_TOKEN` (a fine-grained PAT scoped to this repo with
+**Contents: read/write** and **Pull requests: read/write**, or a GitHub App
+installation token) -- `.github/workflows/release-please.yml` already wires
+it in with a `GITHUB_TOKEN` fallback, so nothing else needs to change once
+the secret exists.
+
 ## Prerequisites
 
 SonarQube bundles an embedded Elasticsearch instance, which requires the
