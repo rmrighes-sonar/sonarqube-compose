@@ -2,7 +2,7 @@
   "title": "SonarQube Server Health",
   "uid": "sonarqube-health",
   "schemaVersion": 39,
-  "version": 7,
+  "version": 8,
   "tags": ["sonarqube", "health"],
   "time": { "from": "now-6h", "to": "now" },
   "panels": [
@@ -400,7 +400,8 @@
       "type": "stat",
       "gridPos": { "h": 5, "w": 8, "x": 16, "y": 49 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "sonarqube_number_of_connected_sonarlint_clients", "refId": "A" }]
+      "targets": [{ "expr": "sonarqube_number_of_connected_sonarlint_clients", "refId": "A" }],
+      "options": { "graphMode": "area" }
     },
 
     {
