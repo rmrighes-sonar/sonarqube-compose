@@ -34,6 +34,10 @@ jobs:
         with:
           args: >
             -Dsonar.projectVersion=${{ steps.version.outputs.value }}
+          # The action defaults to true (skipping GPG verification of the
+          # downloaded Sonar Scanner CLI binary, only checksum-verifying
+          # it) -- opt in to full signature verification instead.
+          skipSignatureVerification: false
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
