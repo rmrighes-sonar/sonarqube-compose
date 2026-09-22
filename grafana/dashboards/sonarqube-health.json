@@ -2,7 +2,7 @@
   "title": "SonarQube Server Health",
   "uid": "sonarqube-health",
   "schemaVersion": 39,
-  "version": 5,
+  "version": 6,
   "tags": ["sonarqube", "health"],
   "time": { "from": "now-6h", "to": "now" },
   "panels": [
@@ -197,7 +197,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 22 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "sonarqube_compute_engine_pending_tasks_total", "refId": "A" }]
+      "targets": [{ "expr": "sonarqube_compute_engine_pending_tasks_total", "refId": "A", "legendFormat": "Pending tasks" }]
     },
     {
       "id": 16,
@@ -245,7 +245,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 6, "x": 0, "y": 31 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "sum(rate(sonarqube_web_api_v1_request_duration_seconds_count[5m]))", "refId": "A" }],
+      "targets": [{ "expr": "sum(rate(sonarqube_web_api_v1_request_duration_seconds_count[5m]))", "refId": "A", "legendFormat": "requests/sec" }],
       "fieldConfig": { "defaults": { "unit": "reqps" } }
     },
     {
@@ -257,7 +257,8 @@
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum(rate(sonarqube_web_api_v1_request_duration_seconds_bucket[5m])) by (le))",
-          "refId": "A"
+          "refId": "A",
+          "legendFormat": "p95 latency"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "s" } }
@@ -268,7 +269,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 6, "x": 12, "y": 31 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "sum(rate(sonarqube_web_api_v2_request_duration_seconds_count[5m]))", "refId": "A" }],
+      "targets": [{ "expr": "sum(rate(sonarqube_web_api_v2_request_duration_seconds_count[5m]))", "refId": "A", "legendFormat": "requests/sec" }],
       "fieldConfig": { "defaults": { "unit": "reqps" } }
     },
     {
@@ -280,7 +281,8 @@
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum(rate(sonarqube_web_api_v2_request_duration_seconds_bucket[5m])) by (le))",
-          "refId": "A"
+          "refId": "A",
+          "legendFormat": "p95 latency"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "s" } }
@@ -300,7 +302,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "sum(rate(sonarqube_db_query_duration_seconds_count[5m]))", "refId": "A" }],
+      "targets": [{ "expr": "sum(rate(sonarqube_db_query_duration_seconds_count[5m]))", "refId": "A", "legendFormat": "queries/sec" }],
       "fieldConfig": { "defaults": { "unit": "ops" } }
     },
     {
@@ -312,7 +314,8 @@
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum(rate(sonarqube_db_query_duration_seconds_bucket[5m])) by (le))",
-          "refId": "A"
+          "refId": "A",
+          "legendFormat": "p95 latency"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "s" } }
@@ -413,7 +416,7 @@
       "type": "timeseries",
       "gridPos": { "h": 6, "w": 12, "x": 0, "y": 55 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "scrape_duration_seconds{job=\"sonarqube\"}", "refId": "A" }],
+      "targets": [{ "expr": "scrape_duration_seconds{job=\"sonarqube\"}", "refId": "A", "legendFormat": "scrape duration" }],
       "fieldConfig": { "defaults": { "unit": "s" } }
     },
     {
