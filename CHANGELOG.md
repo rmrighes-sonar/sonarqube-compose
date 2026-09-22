@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.4.0...v0.4.1) (2026-09-22)
+
+
+### Bug Fixes
+
+* **ci:** enable GPG signature verification for Sonar Scanner CLI download ([6ce72e6](https://github.com/rmrighes-sonar/sonarqube-compose/commit/6ce72e6ba1ad4e53247281a9083ed138684af547))
+
 ## [0.4.0](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.3.1...v0.4.0) (2026-09-22)
 
 
