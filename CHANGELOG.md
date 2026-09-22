@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.5.0...v0.5.1) (2026-09-22)
+
+
+### Bug Fixes
+
+* **grafana:** disable sparkline on Connected SonarLint clients panel ([1e43c16](https://github.com/rmrighes-sonar/sonarqube-compose/commit/1e43c167d11d2768b5c37f69060bb44321c2090d))
+* **grafana:** explicitly fill area under Connected SonarLint clients sparkline ([da9b2a4](https://github.com/rmrighes-sonar/sonarqube-compose/commit/da9b2a4056e584a822595c6dd66b6232e8759fe1))
+
 ## [0.5.0](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.4.5...v0.5.0) (2026-09-22)
 
 
