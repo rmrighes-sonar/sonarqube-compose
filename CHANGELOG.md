@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.3.0...v0.3.1) (2026-09-17)
+
+
+### Bug Fixes
+
+* **grafana:** clean up Usage dashboard clutter and fix trend panels ([#8](https://github.com/rmrighes-sonar/sonarqube-compose/issues/8)) ([ddbb509](https://github.com/rmrighes-sonar/sonarqube-compose/commit/ddbb5098095c442c8f5216c697d86aa502560015))
+
 ## [0.3.0](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.2.0...v0.3.0) (2026-09-17)
 
 
