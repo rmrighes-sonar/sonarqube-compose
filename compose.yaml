@@ -41,6 +41,13 @@ services:
       # same as before this was set.
       SONAR_MCP_ENABLED: "true"
       SONAR_MCP_SERVERURL: "http://mcp:8080"
+      # Off by default since SonarQube's SONAR-27755 (2026-06-01) -- without
+      # this, the WebApiV1/V2/MyBatis metrics interceptors never fire, so
+      # sonarqube_web_api_v1/v2_request_duration_seconds and
+      # sonarqube_db_query_duration_seconds stay permanently empty (0
+      # samples) regardless of traffic, breaking the "Web & API performance"
+      # and "DB query rate/latency" panels in the Grafana Health dashboard.
+      SONAR_PERFORMANCEMONITORING_ENABLED: "true"
     ports:
       - "127.0.0.1:9000:9000"
     volumes:

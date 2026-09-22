@@ -67,6 +67,13 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   ngrok tunnel reachability (via `blackbox-exporter` probes — see "External
   Services" row; shows "Down" when the `mcp`/`share` profiles aren't running
   alongside `monitoring`, same graceful-down behavior as the SonarQube
+  panels above). The "Web & API performance" and "Database" rows require
+  `SONAR_PERFORMANCEMONITORING_ENABLED: "true"` (set in `compose.yaml`) —
+  SonarQube disabled this by default as of SONAR-27755 (2026-06-01); without
+  it, `sonarqube_web_api_v1/v2_request_duration_seconds` and
+  `sonarqube_db_query_duration_seconds` never receive samples (the
+  interceptors that record them never fire), regardless of traffic volume,
+  leaving those panels permanently empty.
   panels above). Backed entirely by the existing `Prometheus` datasource —
   no extra setup needed beyond the `monitoring` profile.
 
