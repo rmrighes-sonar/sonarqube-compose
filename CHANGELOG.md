@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.4.1...v0.4.2) (2026-09-22)
+
+
+### Bug Fixes
+
+* **ci:** support a PAT for release-please to skip the bot-PR approval gate ([49752e5](https://github.com/rmrighes-sonar/sonarqube-compose/commit/49752e5c2e4b6b331c41a7b4721490bc43cb47ec))
+
 ## [0.4.1](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.4.0...v0.4.1) (2026-09-22)
 
 
