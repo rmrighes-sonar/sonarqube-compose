@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.4.5...v0.5.0) (2026-09-22)
+
+
+### Features
+
+* **grafana:** fill area under the line on all timeseries panels ([5c1fdc0](https://github.com/rmrighes-sonar/sonarqube-compose/commit/5c1fdc00dc1de099a5c3e12639921415d47e2c3d))
+
 ## [0.4.5](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.4.4...v0.4.5) (2026-09-22)
 
 
