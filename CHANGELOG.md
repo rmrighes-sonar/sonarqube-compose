@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.5](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.4.4...v0.4.5) (2026-09-22)
+
+
+### Bug Fixes
+
+* **grafana:** add legendFormat to timeseries panels missing one ([f3895d9](https://github.com/rmrighes-sonar/sonarqube-compose/commit/f3895d9604b8afb55e13f789fa544a1a1b053d1a))
+
 ## [0.4.4](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.4.3...v0.4.4) (2026-09-22)
 
 
