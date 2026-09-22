@@ -2,7 +2,7 @@
   "title": "SonarQube Server Health",
   "uid": "sonarqube-health",
   "schemaVersion": 39,
-  "version": 4,
+  "version": 5,
   "tags": ["sonarqube", "health"],
   "time": { "from": "now-6h", "to": "now" },
   "panels": [
@@ -21,6 +21,7 @@
       "gridPos": { "h": 5, "w": 4, "x": 0, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [{ "expr": "up{job=\"sonarqube\"}", "refId": "A" }],
+      "options": { "graphMode": "none" },
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -36,6 +37,7 @@
       "gridPos": { "h": 5, "w": 5, "x": 4, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [{ "expr": "sonarqube_health_web_status", "refId": "A" }],
+      "options": { "graphMode": "none" },
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -51,6 +53,7 @@
       "gridPos": { "h": 5, "w": 5, "x": 9, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [{ "expr": "sonarqube_health_compute_engine_status", "refId": "A" }],
+      "options": { "graphMode": "none" },
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -66,6 +69,7 @@
       "gridPos": { "h": 5, "w": 5, "x": 14, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [{ "expr": "sonarqube_health_elasticsearch_status", "refId": "A" }],
+      "options": { "graphMode": "none" },
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -329,6 +333,7 @@
       "gridPos": { "h": 5, "w": 4, "x": 0, "y": 49 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [{ "expr": "sonarqube_health_integration_github_status", "refId": "A" }],
+      "options": { "graphMode": "none" },
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -344,6 +349,7 @@
       "gridPos": { "h": 5, "w": 4, "x": 4, "y": 49 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [{ "expr": "sonarqube_health_integration_gitlab_status", "refId": "A" }],
+      "options": { "graphMode": "none" },
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -359,6 +365,7 @@
       "gridPos": { "h": 5, "w": 4, "x": 8, "y": 49 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [{ "expr": "sonarqube_health_integration_bitbucket_status", "refId": "A" }],
+      "options": { "graphMode": "none" },
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -374,6 +381,7 @@
       "gridPos": { "h": 5, "w": 4, "x": 12, "y": 49 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [{ "expr": "sonarqube_health_integration_azuredevops_status", "refId": "A" }],
+      "options": { "graphMode": "none" },
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -460,6 +468,7 @@
       "gridPos": { "h": 5, "w": 6, "x": 0, "y": 62 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [{ "expr": "probe_success{job=\"blackbox-mcp\"}", "refId": "A" }],
+      "options": { "graphMode": "none" },
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -475,6 +484,7 @@
       "gridPos": { "h": 5, "w": 6, "x": 6, "y": 62 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [{ "expr": "probe_success{job=\"blackbox-ngrok\"}", "refId": "A" }],
+      "options": { "graphMode": "none" },
       "fieldConfig": {
         "defaults": {
           "mappings": [
