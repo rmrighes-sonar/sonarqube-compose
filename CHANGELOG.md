@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.4](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.4.3...v0.4.4) (2026-09-22)
+
+
+### Bug Fixes
+
+* **sonarqube:** enable performance monitoring so Web API/DB panels populate ([454a0ad](https://github.com/rmrighes-sonar/sonarqube-compose/commit/454a0ada554cc795d205525d4b8203675e69dd40))
+
 ## [0.4.3](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.4.2...v0.4.3) (2026-09-22)
 
 
