@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.3.1...v0.4.0) (2026-09-22)
+
+
+### Features
+
+* add healthchecks for mcp/ngrok and surface reachability in Grafana ([be5726c](https://github.com/rmrighes-sonar/sonarqube-compose/commit/be5726cff6c7a6120f57581390a02259d81a8b47))
+
 ## [0.3.1](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.3.0...v0.3.1) (2026-09-17)
 
 
