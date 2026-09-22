@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.3](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.4.2...v0.4.3) (2026-09-22)
+
+
+### Bug Fixes
+
+* **grafana:** remove misleading sparkline on boolean status panels ([4197179](https://github.com/rmrighes-sonar/sonarqube-compose/commit/4197179a9886d68e64451fc1fcbc64c078a15540))
+
 ## [0.4.2](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.4.1...v0.4.2) (2026-09-22)
 
 
