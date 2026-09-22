@@ -14,7 +14,11 @@ Local SonarQube stack for demos/testing, run via Docker Compose.
   published from the sibling
   [`sonarqube-prometheus-exporter`](https://github.com/rmrighes-sonar/sonarqube-prometheus-exporter)
   repo) for project/portfolio quality data that endpoint doesn't cover.
-  `grafana` visualizes both through two pre-provisioned dashboards — see
+  `blackbox-exporter` (the generic, off-the-shelf Prometheus exporter — no
+  custom code, just a static config file) probes `mcp`'s `/health` endpoint
+  and `ngrok`'s local inspector API so their reachability shows up in
+  Prometheus/Grafana too, since neither exposes its own metrics. `grafana`
+  visualizes all of this through two pre-provisioned dashboards — see
   [Dashboards](#dashboards) below.
 - **`share` profile**: `ngrok` tunnels the local SonarQube instance to a
   fixed public hostname, for sharing access outside your machine.
@@ -59,9 +63,12 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   availability of the Web/Compute Engine/Elasticsearch processes, license
   usage, Elasticsearch disk health, Compute Engine task throughput/duration,
   Web API v1/v2 request rate and p95 latency, database query rate/latency,
-  external integration health, and connected SonarLint clients. Backed
-  entirely by the existing `Prometheus` datasource — no extra setup needed
-  beyond the `monitoring` profile.
+  external integration health, connected SonarLint clients, and MCP server /
+  ngrok tunnel reachability (via `blackbox-exporter` probes — see "External
+  Services" row; shows "Down" when the `mcp`/`share` profiles aren't running
+  alongside `monitoring`, same graceful-down behavior as the SonarQube
+  panels above). Backed entirely by the existing `Prometheus` datasource —
+  no extra setup needed beyond the `monitoring` profile.
 
   **Troubleshooting "Could not find plugin definition for data source" /
   panels showing the Prometheus datasource as missing:** Grafana's
@@ -321,8 +328,9 @@ its logs).
 ## Image policy
 
 This stack intentionally tracks the latest release on every image
-(SonarQube's rolling `enterprise` tag, and `latest` for Prometheus/Grafana)
-for simplicity in local demos, rather than pinning to immutable versions.
+(SonarQube's rolling `enterprise` tag, and `latest` for Prometheus/Grafana/
+blackbox-exporter) for simplicity in local demos, rather than pinning to
+immutable versions.
 Trade-off: `docker compose pull` can introduce breaking changes between
 runs, so only re-pull deliberately, and expect to occasionally re-validate
 the stack afterwards.

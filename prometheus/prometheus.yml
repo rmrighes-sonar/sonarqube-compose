@@ -22,3 +22,34 @@ scrape_configs:
     scrape_interval: 60s
     static_configs:
       - targets: ["sonarqube-prometheus-exporter:9091"]
+  # blackbox-exporter probes for services with no Prometheus metrics of
+  # their own -- mcp's HTTP /health endpoint and ngrok's local inspector
+  # API (TCP-level check only, since ngrok's image has no HTTP client).
+  # probe_success is 0 ("Down") when the mcp/share profiles aren't running
+  # alongside monitoring -- same graceful-down behavior as the sonarqube job.
+  - job_name: blackbox-mcp
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: ["http://mcp:8080/health"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+  - job_name: blackbox-ngrok
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets: ["ngrok:4040"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

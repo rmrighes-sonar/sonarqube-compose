@@ -99,6 +99,12 @@ services:
       SONARQUBE_TRANSPORT: http
     volumes:
       - mcp_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     deploy:
       resources:
         limits:
@@ -144,6 +150,8 @@ services:
       sonarqube:
         condition: service_healthy
       sonarqube-prometheus-exporter:
+        condition: service_healthy
+      blackbox-exporter:
         condition: service_healthy
     secrets:
       - sonar_system_passcode
@@ -231,10 +239,38 @@ services:
     command: ["http", "--url=${NGROK_URL}", "http://sonarqube:9000"]
     ports:
       - "127.0.0.1:4040:4040"
+    healthcheck:
+      # The ngrok image has no curl/wget, only bash -- use /dev/tcp for a
+      # TCP-level check against the local inspector API port.
+      test: ["CMD-SHELL", "bash -c '(exec 3<>/dev/tcp/127.0.0.1/4040) 2>/dev/null'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     deploy:
       resources:
         limits:
           memory: 128m
+    restart: unless-stopped
+
+  blackbox-exporter:
+    profiles: ["monitoring"]
+    # Probes mcp's /health endpoint and ngrok's local inspector API so their
+    # reachability shows up in Prometheus/Grafana, since neither service
+    # exposes its own Prometheus metrics.
+    image: prom/blackbox-exporter:latest
+    volumes:
+      - ./prometheus/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9115/metrics"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 64m
     restart: unless-stopped
 
 volumes:
