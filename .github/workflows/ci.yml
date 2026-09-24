@@ -2,35 +2,46 @@ name: CI
 
 # One workflow, one visible pipeline graph:
 #
-#   version -> build -> test -> sonarqube -> release
+#   version -> lint -> smoke-test -> sonarqube -> release
 #
 # `version` computes the next semantic version (from Conventional Commits
 # since the last tag, via semantic-release --dry-run) and runs first,
-# sequentially before build -- deliberate, not a data dependency (build
+# sequentially before lint -- deliberate, not a data dependency (lint
 # doesn't consume version's output): the version for a commit should be
 # settled before anything else about that commit is validated. It only
-# exists on `push` -- see that job for why -- and `build` explicitly
+# exists on `push` -- see that job for why -- and `lint` explicitly
 # tolerates it being skipped so pull_request runs still get validated.
 #
 # `sonarqube` needs version's *output*, but GitHub Actions only grants
 # output access to jobs listed directly in `needs:` -- listing `version`
-# there alongside `test` would draw a second, direct version -> sonarqube
-# edge on the Actions graph in addition to the version -> build -> test
-# chain, which looks exactly like the redundant-edge mistake caught and
-# fixed on `publish` in the sibling sonarqube-prometheus-exporter repo
-# (hovering `version` would visually "skip" build/test straight to
-# sonarqube). Avoided here by threading the value through each
-# intermediate job's own `outputs:` instead (build re-exposes
-# needs.version.outputs.version as its own output, test re-exposes
-# build's) -- sonarqube then only needs `test`, and the graph stays a
-# genuinely clean, single-edge-per-job straight line. sonarqube also
-# supplies its own plain-git fallback for pull_request runs, where the
-# threaded value is empty because version never ran at all.
+# there alongside `smoke-test` would draw a second, direct
+# version -> sonarqube edge on the Actions graph in addition to the
+# version -> lint -> smoke-test chain, which looks exactly like the
+# redundant-edge mistake caught and fixed on `publish` in the sibling
+# sonarqube-prometheus-exporter repo (hovering `version` would visually
+# "skip" lint/smoke-test straight to sonarqube). Avoided here by threading
+# the value through each intermediate job's own `outputs:` instead (lint
+# re-exposes needs.version.outputs.version as its own output, smoke-test
+# re-exposes lint's) -- sonarqube then only needs `smoke-test`, and the
+# graph stays a genuinely clean, single-edge-per-job straight line.
+# sonarqube also supplies its own plain-git fallback for pull_request runs,
+# where the threaded value is empty because version never ran at all.
 #
 # `release` only runs the real (non-dry-run) semantic-release on a `push`
 # to `main`, after `sonarqube` passes -- see README.md's "Releases" section
 # for why every merge to main now gets its own tagged release, and why this
 # replaced release-please's PR-batching model.
+#
+# `lint` and `smoke-test` (previously named `build`/`test`) were renamed to
+# reflect what they actually do: `lint` only statically validates the
+# tracked config (compose config resolution, shellcheck, JSON parsing) --
+# it builds no artifact, unlike the sibling sonarqube-prometheus-exporter
+# repo's `build` job, which really does compile Go binaries. `smoke-test`
+# is specifically a runtime integration/smoke test (spins up the real
+# stack, waits on healthchecks), not a unit test. Job IDs with a hyphen
+# (`smoke-test`) need bracket syntax in expressions --
+# `needs['smoke-test'].outputs.version`, not dot notation, since `-` would
+# otherwise parse as subtraction.
 on:
   push:
     branches: [main]
@@ -105,24 +116,27 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node .github/semantic-release/print-next-version.mjs
 
-  build:
+  lint:
     needs: version
     # version is *legitimately* skipped on pull_request (see above), which
-    # would otherwise cascade-skip build/test/sonarqube too by default
+    # would otherwise cascade-skip lint/smoke-test/sonarqube too by default
     # (needs: requires success(), and skipped != success) -- explicitly
     # tolerate that here so PRs still actually get validated. A genuine
     # failure in version (only possible on push) still correctly blocks
     # everything downstream.
     if: always() && (needs.version.result == 'success' || needs.version.result == 'skipped')
-    # Re-exposes version's output as its own so `test` (and transitively
-    # `sonarqube`) can reach it via a single-hop `needs:` chain instead of
-    # reaching directly back to `version` -- see the header note above.
-    # Empty on PR runs (version didn't run) -- sonarqube supplies its own
-    # fallback for that case.
+    # Re-exposes version's output as its own so `smoke-test` (and
+    # transitively `sonarqube`) can reach it via a single-hop `needs:`
+    # chain instead of reaching directly back to `version` -- see the
+    # header note above. Empty on PR runs (version didn't run) --
+    # sonarqube supplies its own fallback for that case.
     outputs:
       version: ${{ needs.version.outputs.version }}
-    # Fast, cheap validation that the tracked config is well-formed --
-    # fails in seconds instead of waiting on the (much slower) smoke test.
+    # Fast, cheap static validation that the tracked config is
+    # well-formed -- fails in seconds instead of waiting on the (much
+    # slower) smoke test. Builds no artifact (unlike the sibling
+    # sonarqube-prometheus-exporter repo's `build` job, which compiles Go
+    # binaries) -- this is purely config/script/JSON linting.
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -161,30 +175,31 @@ jobs:
             jq empty "$f"
           done
 
-  test:
-    needs: build
+  smoke-test:
+    needs: lint
     # always() && is required, not decorative: GitHub skips *evaluating* a
     # job's if: entirely (short-circuiting straight to "skipped") whenever
     # any ancestor was skipped, unless the condition contains always(),
     # success(), failure(), or cancelled() -- confirmed by testing (a bare
-    # `needs.build.result == 'success'` here still cascaded to "skipped"
-    # even though build had actually succeeded, because version -- an
-    # ancestor via build -- is legitimately skipped on every pull_request).
+    # `needs.lint.result == 'success'` here still cascaded to "skipped"
+    # even though lint had actually succeeded, because version -- an
+    # ancestor via lint -- is legitimately skipped on every pull_request).
     # always() forces evaluation; the && condition then does the real
-    # check, restricted to build's own result rather than the default
+    # check, restricted to lint's own result rather than the default
     # implicit success(), which checks the *entire* transitive ancestor
     # chain rather than just this job's direct needs:.
-    if: always() && needs.build.result == 'success'
-    # Re-exposes build's (pass-through of version's) output the same way,
+    if: always() && needs.lint.result == 'success'
+    # Re-exposes lint's (pass-through of version's) output the same way,
     # one more hop down the chain -- see the header note above.
     outputs:
-      version: ${{ needs.build.outputs.version }}
-    # Smoke test: prove the stack this repo ships actually comes up
-    # healthy, not just that its YAML parses. Limited to the profiles that
-    # don't need a real external secret (`share` needs a real
-    # NGROK_AUTHTOKEN; `mcp` adds limited value here) -- core + monitoring
-    # already exercises Postgres, SonarQube, Prometheus, Grafana, the
-    # exporter, and blackbox-exporter end to end.
+      version: ${{ needs.lint.outputs.version }}
+    # Prove the stack this repo ships actually comes up healthy, not just
+    # that its YAML parses -- a real runtime integration test, distinct
+    # from lint's static-only checks. Limited to the profiles that don't
+    # need a real external secret (`share` needs a real NGROK_AUTHTOKEN;
+    # `mcp` adds limited value here) -- core + monitoring already
+    # exercises Postgres, SonarQube, Prometheus, Grafana, the exporter,
+    # and blackbox-exporter end to end.
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -215,11 +230,13 @@ jobs:
         run: docker compose down -v
 
   sonarqube:
-    needs: test
-    # Same reasoning as test's if: above -- always() forces evaluation
-    # despite version's skip further up the chain; the && condition
-    # restricts to test's own result.
-    if: always() && needs.test.result == 'success'
+    needs: smoke-test
+    # Same reasoning as smoke-test's if: above -- always() forces
+    # evaluation despite version's skip further up the chain; the &&
+    # condition restricts to smoke-test's own result. Bracket syntax
+    # (needs['smoke-test']) is required, not stylistic, since dot notation
+    # (needs.smoke-test) would parse the hyphen as subtraction.
+    if: always() && needs['smoke-test'].result == 'success'
     # Requires SONAR_TOKEN (secret) and SONAR_HOST_URL (variable) to be
     # set, and the SonarQube server (this repo's own compose stack,
     # tunnelled via ngrok) to be reachable from GitHub-hosted runners at
@@ -236,7 +253,7 @@ jobs:
         id: resolved_version
         run: |
           set -euo pipefail
-          V="${{ needs.test.outputs.version }}"
+          V="${{ needs['smoke-test'].outputs.version }}"
           if [ -z "$V" ]; then
             TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)"
             V="${TAG#v}"
@@ -263,7 +280,7 @@ jobs:
     # further up the chain on pull_request runs (moot for release itself,
     # since it's already push-gated below, but needed for consistency --
     # without it this job would show "skipped" on every push too, for the
-    # same short-circuiting reason as test/sonarqube above).
+    # same short-circuiting reason as smoke-test/sonarqube above).
     if: always() && github.event_name == 'push' && needs.sonarqube.result == 'success'
     runs-on: ubuntu-latest
     permissions:

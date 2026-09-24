@@ -283,7 +283,7 @@ Every push to `main` and every pull request runs a single workflow,
 
 ```mermaid
 flowchart LR
-    version[Compute next version] --> build[Build] --> test[Test] --> sonar[SonarQube Analysis] --> release[Release]
+    version[Compute next version] --> lint[Lint] --> smokeTest["Smoke Test"] --> sonar[SonarQube Analysis] --> release[Release]
 ```
 
 - **`version`** -- computes the next [semantic version](https://semver.org/)
@@ -297,45 +297,53 @@ flowchart LR
   merge ref regardless of `dryRun`/`ci` options (confirmed by testing),
   and an approximate version doesn't affect correctness there anyway --
   SonarQube's PR-analysis mode defines "new code" as diff-vs-target-branch,
-  not by version. Runs first, sequentially before `build` on `push` -- a
-  deliberate ordering choice, not a data dependency (`build` doesn't
+  not by version. Runs first, sequentially before `lint` on `push` -- a
+  deliberate ordering choice, not a data dependency (`lint` doesn't
   consume its output): the version for a commit is settled before
   anything else about it is validated.
-- **`build`** (needs `version`, explicitly tolerating it being `skipped`
-  as well as `success` -- see above) -- fast, cheap validation that the
-  tracked config is well-formed: `docker compose config -q` against the
-  base stack and every profile combination (`monitoring`, `share`, `mcp`,
-  all three), `shellcheck` on `scripts/*.sh`, and JSON validation of the
-  Grafana dashboards. Fails in seconds instead of waiting on the smoke
-  test below.
-- **`test`** (needs `build`) -- a smoke test: brings up the core + `monitoring`
-  profile with throwaway config (`cp .env.example .env`, no real secrets
-  needed) via `docker compose up -d --wait`, asserts every container reports
-  healthy, then tears it down. Limited to `monitoring` -- `share` needs a
-  real `NGROK_AUTHTOKEN` and `mcp` adds little smoke-test value beyond what
+- **`lint`** (needs `version`, explicitly tolerating it being `skipped`
+  as well as `success` -- see above) -- fast, cheap *static* validation
+  that the tracked config is well-formed: `docker compose config -q`
+  against the base stack and every profile combination (`monitoring`,
+  `share`, `mcp`, all three), `shellcheck` on `scripts/*.sh`, and JSON
+  validation of the Grafana dashboards. Builds no artifact -- unlike the
+  sibling `sonarqube-prometheus-exporter` repo's `build` job, which really
+  does compile Go binaries; this repo has no build output of its own, so
+  `lint` is the more accurate name for what's purely a linting pass.
+  Fails in seconds instead of waiting on the smoke test below.
+- **`smoke-test`** (needs `lint`) -- a real runtime *integration* test,
+  not a unit test: brings up the core + `monitoring` profile with
+  throwaway config (`cp .env.example .env`, no real secrets needed) via
+  `docker compose up -d --wait`, asserts every container reports healthy,
+  then tears it down. Limited to `monitoring` -- `share` needs a real
+  `NGROK_AUTHTOKEN` and `mcp` adds little smoke-test value beyond what
   core + monitoring already exercises (Postgres, SonarQube, Prometheus,
   Grafana, the exporter, blackbox-exporter).
-- **`sonarqube`** (needs `test`) -- only scans once the config has proven
-  it actually starts a healthy stack, stamped with the version this exact
-  commit will ship as rather than whatever was last already released. On
-  `pull_request`, where `version` never ran and the threaded value is
-  empty, `sonarqube` resolves its own fallback directly via `git describe
-  --tags`. Requires `SONAR_TOKEN` (secret) and `SONAR_HOST_URL` (variable)
-  -- see [GitHub Integration](#github-integration). `sonarqube` only needs
-  `test` -- the version value is threaded through `build`'s and `test`'s
-  own `outputs:` (each re-exposing the upstream job's output) rather than
-  `sonarqube` reaching directly back to `version`, since GitHub Actions
-  only grants output access to jobs listed directly in `needs:`. Reaching
-  back directly would draw a second edge straight into `sonarqube` in
-  addition to the `version -> build -> test` chain -- the same
-  redundant-edge graph mistake caught and fixed on `publish` in the
-  sibling `sonarqube-prometheus-exporter` repo's history.
+- **`sonarqube`** (needs `smoke-test`) -- only scans once the config has
+  proven it actually starts a healthy stack, stamped with the version this
+  exact commit will ship as rather than whatever was last already
+  released. On `pull_request`, where `version` never ran and the threaded
+  value is empty, `sonarqube` resolves its own fallback directly via
+  `git describe --tags`. Requires `SONAR_TOKEN` (secret) and
+  `SONAR_HOST_URL` (variable) -- see
+  [GitHub Integration](#github-integration). `sonarqube` only needs
+  `smoke-test` -- the version value is threaded through `lint`'s and
+  `smoke-test`'s own `outputs:` (each re-exposing the upstream job's
+  output) rather than `sonarqube` reaching directly back to `version`,
+  since GitHub Actions only grants output access to jobs listed directly
+  in `needs:`. Reaching back directly would draw a second edge straight
+  into `sonarqube` in addition to the `version -> lint -> smoke-test`
+  chain -- the same redundant-edge graph mistake caught and fixed on
+  `publish` in the sibling `sonarqube-prometheus-exporter` repo's history.
+  (Note: `smoke-test`'s hyphen means expressions referencing it need
+  bracket syntax -- `needs['smoke-test']` -- not dot notation, which would
+  parse the hyphen as subtraction.)
 - **`release`** (needs `sonarqube`; `push` to `main` only) -- runs
   `semantic-release` for real once the quality gate has passed, cutting the
   actual git tag and GitHub Release.
 
-**`main` is protected:** merging requires an open pull request with `build`,
-`test`, and `sonarqube` all green, and direct pushes/force-pushes/deletion
+**`main` is protected:** merging requires an open pull request with `lint`,
+`smoke-test`, and `sonarqube` all green, and direct pushes/force-pushes/deletion
 of `main` are blocked. There's intentionally no required-approval count --
 GitHub never allows an account to approve its own pull request, and this
 repo has a single maintainer, so requiring N approvals would make every PR
