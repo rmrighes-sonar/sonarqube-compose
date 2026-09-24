@@ -202,13 +202,13 @@
     },
     {
       "id": 16,
-      "title": "Avg Compute Engine task duration by type",
+      "title": "Compute Engine Task Duration by Type",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 22 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "rate(sonarqube_compute_engine_tasks_running_duration_seconds_sum[5m]) / rate(sonarqube_compute_engine_tasks_running_duration_seconds_count[5m])",
+          "expr": "rate(sonarqube_compute_engine_tasks_running_duration_seconds_sum[5m]) / clamp_min(rate(sonarqube_compute_engine_tasks_running_duration_seconds_count[5m]), 1e-9)",
           "refId": "A",
           "legendFormat": "{{task_type}}"
         }
@@ -223,13 +223,20 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "topk(10, sum by (project_key, task_type) (sonarqube_compute_engine_tasks_running_duration_seconds_sum) / sum by (project_key, task_type) (sonarqube_compute_engine_tasks_running_duration_seconds_count))",
+          "expr": "topk(10, sum by (project_key, type) (label_replace(label_replace(sum by (project_key, task_type) (sonarqube_compute_engine_tasks_running_duration_seconds_sum{task_type=~\"REPORT|VIEW_REFRESH\"}) / sum by (project_key, task_type) (sonarqube_compute_engine_tasks_running_duration_seconds_count{task_type=~\"REPORT|VIEW_REFRESH\"}), \"type\", \"Project\", \"task_type\", \"REPORT\"), \"type\", \"Portfolio\", \"task_type\", \"VIEW_REFRESH\")))",
           "refId": "A",
           "format": "table",
           "instant": true
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "ms" } }
+      "fieldConfig": {
+        "defaults": { "unit": "ms" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "project_key" }, "properties": [{ "id": "custom.width", "value": 250 } ] },
+          { "matcher": { "id": "byName", "options": "type" }, "properties": [{ "id": "custom.width", "value": 100 } ] },
+          { "matcher": { "id": "byName", "options": "Value" }, "properties": [{ "id": "custom.width", "value": 110 } ] }
+        ]
+      }
     },
 
     {

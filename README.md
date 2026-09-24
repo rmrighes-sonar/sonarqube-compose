@@ -83,7 +83,7 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   metric actually reports raw millisecond values (confirmed by comparing
   live query results directly against `ce.log`'s `time=<N>ms` entries for
   the same task -- e.g. a task logged at `time=83ms` shows as `83` from
-  Prometheus, not `0.083`). The "Avg Compute Engine task duration by type"
+  Prometheus, not `0.083`). The "Compute Engine Task Duration by Type"
   and "Compute Engine task duration by project" panels set
   `fieldConfig.defaults.unit` to `"ms"` to match reality, rather than the
   `"s"` you'd expect from the metric's name -- if you ever change these
@@ -104,12 +104,40 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   `0` as that event ages out. The table now instead divides the raw
   cumulative counters directly (`sum by (...) (..._sum) / sum by (...)
   (..._count)`, no time window at all) -- the lifetime average duration
-  per project/type, which stays populated as soon as at least one task has
-  ever completed instead of flickering to zero between runs. The
-  "Avg Compute Engine task duration by type" timeseries panel still uses
-  the `rate()`-based version deliberately -- occasional dips toward zero
-  read naturally on a time-series graph of a rolling rate, unlike blank
-  rows in a comparison table.
+  per project, which stays populated as soon as at least one task has
+  ever completed instead of flickering to zero between runs.
+
+  SonarQube's Compute Engine reuses the same `project_key` label for
+  portfolio/application keys too, under `task_type="VIEW_REFRESH"` instead
+  of `task_type="REPORT"` (regular project analysis) -- so without any
+  handling, a portfolio like `github_rmrighes-sonar` shows up as a row
+  indistinguishable from a real project. Rather than filtering portfolios
+  out, the query uses `label_replace()` twice to turn the raw
+  `task_type` value into a clean **`type`** column (`Project` for
+  `REPORT`, `Portfolio` for `VIEW_REFRESH`), then re-aggregates by
+  `(project_key, type)` to drop the now-redundant raw `task_type` label
+  from the result -- so both project and portfolio rows stay visible,
+  clearly labeled, instead of either being hidden or shown with a raw,
+  unexplained SonarQube-internal task-type string.
+
+  **"Compute Engine Task Duration by Type"** (the sibling timeseries
+  panel, deliberately *not* titled "Avg..."): CE tasks complete
+  every several minutes at best in this environment, so a 5-minute
+  `rate()` window almost never contains more than one completed task --
+  when it contains exactly one, the classic `rate(_sum[5m]) /
+  rate(_count[5m])` expression reduces to approximately that single
+  task's real duration (verified against `ce.log`'s own `time=<N>ms` for
+  the same task, ~0.06% apart), i.e. this panel is really "the last
+  task's duration, plotted intermittently," not a true average of
+  multiple observations -- hence the honest title. When the window
+  contains *zero* completed tasks, both rates are `0`, and a plain
+  division would give `0/0 = NaN` (confirmed live), which Grafana renders
+  as a gap in the line rather than a drop to zero. The denominator is
+  wrapped in `clamp_min(..., 1e-9)` specifically to avoid that --
+  `0 / 1e-9` evaluates to a real `0` instead of `NaN`, so idle periods
+  correctly show the line dropping to zero (matching the visual
+  convention of e.g. request-rate panels) rather than a gap or an
+  interpolated flat line across a stretch with no real data underneath.
 
   **Troubleshooting "Could not find plugin definition for data source" /
   panels showing the Prometheus datasource as missing:** Grafana's
