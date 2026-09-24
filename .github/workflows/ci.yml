@@ -55,7 +55,12 @@ jobs:
         # (no ^/~ range) and --ignore-scripts: unpinned + script-executing
         # installs of third-party packages both flagged by SonarQube
         # (githubactions:S8543, S6505) as supply-chain risks.
-        run: npm install --no-save --ignore-scripts semantic-release@25.0.9 conventional-changelog-conventionalcommits@8.0.1
+        run: npm install --no-save --ignore-scripts semantic-release@25.0.9 conventional-changelog-conventionalcommits
+
+      - name: Print resolved conventional-changelog-conventionalcommits version
+        # Temporary diagnostic to pin the exact version in a follow-up
+        # commit (my guessed 8.0.1 above didn't exist -- ETARGET).
+        run: npm ls conventional-changelog-conventionalcommits
 
       - name: Compute next version (dry run, no tag/release created)
         # Writes to $GITHUB_OUTPUT itself (see the script) rather than via
@@ -193,7 +198,7 @@ jobs:
           node-version: 22
 
       - name: Install semantic-release
-        run: npm install --no-save --ignore-scripts semantic-release@25.0.9 conventional-changelog-conventionalcommits@8.0.1
+        run: npm install --no-save --ignore-scripts semantic-release@25.0.9 conventional-changelog-conventionalcommits
 
       - name: Release
         env:
