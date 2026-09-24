@@ -223,7 +223,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "topk(10, sum by (project_key, task_type) (sonarqube_compute_engine_tasks_running_duration_seconds_sum) / sum by (project_key, task_type) (sonarqube_compute_engine_tasks_running_duration_seconds_count))",
+          "expr": "topk(10, sum by (project_key) (sonarqube_compute_engine_tasks_running_duration_seconds_sum{task_type=\"REPORT\"}) / sum by (project_key) (sonarqube_compute_engine_tasks_running_duration_seconds_count{task_type=\"REPORT\"}))",
           "refId": "A",
           "format": "table",
           "instant": true

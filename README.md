@@ -102,10 +102,16 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   for most rows most of the time -- it only shows a nonzero value in the
   brief window right after a task actually finishes, then decays back to
   `0` as that event ages out. The table now instead divides the raw
-  cumulative counters directly (`sum by (...) (..._sum) / sum by (...)
-  (..._count)`, no time window at all) -- the lifetime average duration
-  per project/type, which stays populated as soon as at least one task has
-  ever completed instead of flickering to zero between runs.
+  cumulative counters directly (`sum by (project_key) (..._sum{task_type="REPORT"})
+  / sum by (project_key) (..._count{task_type="REPORT"})`, no time window
+  at all) -- the lifetime average duration per project, which stays
+  populated as soon as at least one task has ever completed instead of
+  flickering to zero between runs. Filtered to `task_type="REPORT"`
+  (project analysis) specifically -- SonarQube's Compute Engine reuses the
+  same `project_key` label for portfolio/application keys under
+  `task_type="VIEW_REFRESH"`, which isn't a "project" and doesn't belong
+  in a panel titled "by project" (it showed up as e.g.
+  `github_rmrighes-sonar` before this filter was added).
 
   **"Compute Engine Task Duration by Type"** (the sibling timeseries
   panel, deliberately *not* titled "Avg..."): CE tasks complete
