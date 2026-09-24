@@ -59,8 +59,11 @@ jobs:
 
       - name: Print resolved conventional-changelog-conventionalcommits version
         # Temporary diagnostic to pin the exact version in a follow-up
-        # commit (my guessed 8.0.1 above didn't exist -- ETARGET).
-        run: npm ls conventional-changelog-conventionalcommits
+        # commit (my guessed 8.0.1 above didn't exist -- ETARGET). `npm ls`
+        # doesn't work here since there's no package.json to compare
+        # against (--no-save, no manifest at all) -- read the installed
+        # package's own package.json directly instead.
+        run: node -p "require('./node_modules/conventional-changelog-conventionalcommits/package.json').version"
 
       - name: Compute next version (dry run, no tag/release created)
         # Writes to $GITHUB_OUTPUT itself (see the script) rather than via
