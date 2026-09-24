@@ -276,6 +276,55 @@ should show `Enabled: true, Healthy: true` once the `mcp` container is up
 not an error). `docker compose logs mcp` for troubleshooting the container
 itself.
 
+## CI Pipeline
+
+Every push to `main` and every pull request runs a single workflow,
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml), with three jobs
+chained via `needs:` so the whole thing renders as one linear graph on the
+Actions run page:
+
+```mermaid
+flowchart LR
+    build[Build] --> test[Test] --> sonar[SonarQube Analysis]
+```
+
+- **`build`** -- fast, cheap validation that the tracked config is
+  well-formed: `docker compose config -q` against the base stack and every
+  profile combination (`monitoring`, `share`, `mcp`, all three), `shellcheck`
+  on `scripts/*.sh`, and JSON validation of the Grafana dashboards. Fails in
+  seconds instead of waiting on the smoke test below.
+- **`test`** (needs `build`) -- a smoke test: brings up the core + `monitoring`
+  profile with throwaway config (`cp .env.example .env`, no real secrets
+  needed) via `docker compose up -d --wait`, asserts every container reports
+  healthy, then tears it down. Limited to `monitoring` -- `share` needs a
+  real `NGROK_AUTHTOKEN` and `mcp` adds little smoke-test value beyond what
+  core + monitoring already exercises (Postgres, SonarQube, Prometheus,
+  Grafana, the exporter, blackbox-exporter).
+- **`sonarqube`** (needs `test`) -- only scans once the config has proven it
+  actually starts a healthy stack. Requires `SONAR_TOKEN` (secret) and
+  `SONAR_HOST_URL` (variable) -- see [GitHub Integration](#github-integration).
+
+**Release commits are skipped:** both the `push` and `pull_request`
+triggers set `paths-ignore: [CHANGELOG.md, .release-please-manifest.json]`.
+release-please's Release PRs (and the commit that merges one) only ever
+touch those two files, so this pipeline doesn't re-validate/re-scan
+something that already passed CI moments earlier under the real code
+change -- see [Releases](#releases) below.
+
+**`main` is protected:** merging requires an open pull request with `build`,
+`test`, and `sonarqube` all green, and direct pushes/force-pushes/deletion
+of `main` are blocked. There's intentionally no required-approval count --
+GitHub never allows an account to approve its own pull request, and this
+repo has a single maintainer, so requiring N approvals would make every PR
+permanently unmergeable. The gate is "a PR exists and CI is green," not
+human sign-off.
+
+**Known bottleneck:** SonarQube here is self-hosted, reachable only through
+the `share` profile's `ngrok` tunnel (see [GitHub Integration](#github-integration)).
+If the local stack or tunnel isn't up when CI runs, the `sonarqube` job
+fails -- and since it's a required check, that blocks every merge to `main`
+until the local stack is back up.
+
 ## Releases
 
 Versioning follows [Semantic Versioning](https://semver.org/), automated by

@@ -1,0 +1,137 @@
+name: CI
+
+# One workflow, one visible pipeline graph: build -> test -> sonarqube.
+# Each stage only runs once the previous one has proven itself, so a broken
+# compose file fails fast in `build` instead of burning time in `test`, and
+# a stack that doesn't actually start never reaches a SonarQube scan.
+#
+# paths-ignore skips the whole pipeline for release-please's own commits --
+# its release PRs (and the merge that cuts a release) only ever touch
+# CHANGELOG.md / .release-please-manifest.json, never actual config/code, so
+# there's nothing new here for build/test/sonarqube to validate.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - CHANGELOG.md
+      - .release-please-manifest.json
+  pull_request:
+    paths-ignore:
+      - CHANGELOG.md
+      - .release-please-manifest.json
+
+jobs:
+  build:
+    # Fast, cheap validation that the tracked config is well-formed --
+    # fails in seconds instead of waiting on the (much slower) smoke test.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create dummy .env for config validation
+        # .env.example's placeholder values are non-secret and non-empty --
+        # exactly what `docker compose config` needs to resolve every
+        # ${VAR} reference across all profile combinations without
+        # warnings. Never a real secret, and never committed.
+        run: cp .env.example .env
+
+      - name: Validate compose config (base + every profile combination)
+        run: |
+          set -euo pipefail
+          for profiles in \
+            "" \
+            "--profile monitoring" \
+            "--profile share" \
+            "--profile mcp" \
+            "--profile monitoring --profile share --profile mcp"; do
+            echo "== docker compose ${profiles:-<none>} config -q =="
+            # shellcheck disable=SC2086
+            docker compose ${profiles} config -q
+          done
+
+      - name: Shellcheck
+        run: shellcheck scripts/*.sh
+
+      - name: Validate dashboard JSON
+        run: |
+          set -euo pipefail
+          for f in grafana/dashboards/*.json; do
+            echo "== $f =="
+            jq empty "$f"
+          done
+
+  test:
+    needs: build
+    # Smoke test: prove the stack this repo ships actually comes up
+    # healthy, not just that its YAML parses. Limited to the profiles that
+    # don't need a real external secret (`share` needs a real
+    # NGROK_AUTHTOKEN; `mcp` adds limited value here) -- core + monitoring
+    # already exercises Postgres, SonarQube, Prometheus, Grafana, the
+    # exporter, and blackbox-exporter end to end.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create dummy .env for smoke test
+        run: cp .env.example .env
+
+      - name: Raise vm.max_map_count for embedded Elasticsearch
+        # SonarQube's bundled Elasticsearch fails its bootstrap checks
+        # below this -- see the "Prerequisites" section of README.md.
+        run: sudo sysctl -w vm.max_map_count=262144
+
+      - name: Start core + monitoring profile
+        run: docker compose --profile monitoring up -d --wait --wait-timeout 240
+
+      - name: Show container status
+        if: always()
+        run: docker compose ps
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs --tail=200
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
+  sonarqube:
+    needs: test
+    # Requires SONAR_TOKEN (repo secret) and SONAR_HOST_URL (repo variable)
+    # to be set, and the SonarQube server (this repo's own compose stack,
+    # tunnelled via ngrok) to be reachable from GitHub-hosted runners at
+    # scan time -- see the "GitHub Integration" section of README.md.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # disable shallow clone for better analysis relevancy
+
+      - name: Determine project version
+        # Without an explicit sonar.projectVersion, every analysis records
+        # "not provided" as the version (visible in SonarQube's own
+        # Activity log/API). release-please's manifest is the single
+        # source of truth for "the current released version" -- it's
+        # accurate immediately after a release, and still the most recent
+        # meaningful version for ordinary commits/PRs in between releases.
+        id: version
+        run: echo "value=$(jq -r '.["."]' .release-please-manifest.json)" >> "$GITHUB_OUTPUT"
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2 # v7.1.0
+        with:
+          args: >
+            -Dsonar.projectVersion=${{ steps.version.outputs.value }}
+          # The action defaults to true (skipping GPG verification of the
+          # downloaded Sonar Scanner CLI binary, only checksum-verifying
+          # it) -- opt in to full signature verification instead.
+          skipSignatureVerification: false
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
