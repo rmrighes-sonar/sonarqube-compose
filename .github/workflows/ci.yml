@@ -167,13 +167,102 @@ jobs:
       - name: Shellcheck
         run: shellcheck scripts/*.sh
 
-      - name: Validate dashboard JSON
+      - name: Validate JSON configs
+        # Includes .releaserc.json -- it's only ever read by the version/
+        # release jobs, and version doesn't even run on pull_request (see
+        # that job's if:), so a broken .releaserc.json would otherwise
+        # sail through an entire PR unnoticed and only blow up for the
+        # first time on the real push to main that finally invokes it,
+        # breaking `release` in production.
         run: |
           set -euo pipefail
-          for f in grafana/dashboards/*.json; do
+          for f in grafana/dashboards/*.json .releaserc.json; do
             echo "== $f =="
             jq empty "$f"
           done
+
+      - name: Validate YAML configs
+        # yq is preinstalled on GitHub-hosted ubuntu-latest runners.
+        # prometheus/prometheus.yml is deliberately not included here --
+        # the next step validates it more thoroughly with promtool, which
+        # also catches semantic errors (bad scrape/relabel configs) that
+        # plain YAML parsing can't.
+        run: |
+          set -euo pipefail
+          for f in \
+            grafana/provisioning/dashboards/sonarqube.yaml \
+            grafana/provisioning/datasources/prometheus.yaml \
+            prometheus/blackbox.yml; do
+            echo "== $f =="
+            yq eval . "$f" > /dev/null
+          done
+
+      - name: Validate prometheus.yml with promtool
+        # promtool (bundled in the same image the monitoring profile
+        # actually runs) checks scrape configs, relabeling rules, etc.
+        # semantically -- not just YAML syntax. A malformed scrape job can
+        # otherwise fail silently (Prometheus just skips it) rather than
+        # erroring loudly, so smoke-test's healthcheck alone wouldn't
+        # catch it. promtool also verifies referenced credential files
+        # exist, so the sonarqube job's credentials_file needs a stand-in
+        # for the real Docker secret compose.yaml mounts at runtime --
+        # content is never read for a config-syntax check, just presence.
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/fake-secrets
+          echo dummy > /tmp/fake-secrets/sonar_system_passcode
+          docker run --rm --entrypoint promtool \
+            -v "$(pwd)/prometheus:/etc/prometheus:ro" \
+            -v /tmp/fake-secrets/sonar_system_passcode:/run/secrets/sonar_system_passcode:ro \
+            prom/prometheus:latest \
+            check config /etc/prometheus/prometheus.yml
+
+      - name: Check .env.example matches variables referenced in compose.yaml
+        # Catches drift in both directions: a new ${VAR} added to
+        # compose.yaml but forgotten in .env.example (breaks the README's
+        # setup instructions silently), or a stale entry left in
+        # .env.example for a variable compose.yaml no longer references.
+        run: |
+          set -euo pipefail
+          COMPOSE_VARS="$(grep -ohE '\$\{[A-Z_][A-Z0-9_]*\}' compose.yaml | sed -E 's/^\$\{(.*)\}$/\1/' | sort -u)"
+          ENV_VARS="$(grep -ohE '^[A-Z_][A-Z0-9_]*=' .env.example | sed 's/=$//' | sort -u)"
+          MISSING_IN_ENV="$(comm -23 <(echo "$COMPOSE_VARS") <(echo "$ENV_VARS"))"
+          MISSING_IN_COMPOSE="$(comm -13 <(echo "$COMPOSE_VARS") <(echo "$ENV_VARS"))"
+          STATUS=0
+          if [ -n "$MISSING_IN_ENV" ]; then
+            echo "Referenced in compose.yaml but missing from .env.example:"
+            echo "$MISSING_IN_ENV"
+            STATUS=1
+          fi
+          if [ -n "$MISSING_IN_COMPOSE" ]; then
+            echo "Documented in .env.example but never referenced in compose.yaml:"
+            echo "$MISSING_IN_COMPOSE"
+            STATUS=1
+          fi
+          exit "$STATUS"
+
+      - name: Install actionlint
+        # Downloads a pinned release + verifies its checksum, rather than
+        # curl-pipe-to-bash or an unpinned third-party Action -- consistent
+        # with this workflow's other exact-pinned, --ignore-scripts-style
+        # supply-chain hygiene (see the `version`/`release` jobs' npm
+        # installs).
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+        run: |
+          set -euo pipefail
+          curl -sSLO "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -sSLO "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"
+          sha256sum --ignore-missing -c "actionlint_${ACTIONLINT_VERSION}_checksums.txt"
+          tar xzf "actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" actionlint
+
+      - name: Lint GitHub Actions workflows
+        # Not part of this pipeline until now -- every real bug this
+        # exact tool caught during development (invalid expressions,
+        # deprecated action versions, syntax mistakes) had to be run
+        # manually and remembered; this makes that automatic on every
+        # push/PR instead.
+        run: ./actionlint -color
 
   smoke-test:
     needs: lint
