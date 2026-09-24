@@ -223,7 +223,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "topk(10, sum by (project_key, task_type) (rate(sonarqube_compute_engine_tasks_running_duration_seconds_sum[5m])))",
+          "expr": "topk(10, sum by (project_key, task_type) (sonarqube_compute_engine_tasks_running_duration_seconds_sum) / sum by (project_key, task_type) (sonarqube_compute_engine_tasks_running_duration_seconds_count))",
           "refId": "A",
           "format": "table",
           "instant": true
