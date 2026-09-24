@@ -202,7 +202,7 @@
     },
     {
       "id": 16,
-      "title": "Most Recent Compute Engine Task Duration by Type",
+      "title": "Compute Engine Task Duration by Type",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 22 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },

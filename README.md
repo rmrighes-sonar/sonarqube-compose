@@ -83,8 +83,8 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   metric actually reports raw millisecond values (confirmed by comparing
   live query results directly against `ce.log`'s `time=<N>ms` entries for
   the same task -- e.g. a task logged at `time=83ms` shows as `83` from
-  Prometheus, not `0.083`). The "Most Recent Compute Engine Task Duration
-  by Type" and "Compute Engine task duration by project" panels set
+  Prometheus, not `0.083`). The "Compute Engine Task Duration by Type"
+  and "Compute Engine task duration by project" panels set
   `fieldConfig.defaults.unit` to `"ms"` to match reality, rather than the
   `"s"` you'd expect from the metric's name -- if you ever change these
   panels, keep that in mind or durations will render ~1000x too large
@@ -107,8 +107,8 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   per project/type, which stays populated as soon as at least one task has
   ever completed instead of flickering to zero between runs.
 
-  **"Most Recent Compute Engine Task Duration by Type"** (the sibling
-  timeseries panel, deliberately *not* titled "Avg..."): CE tasks complete
+  **"Compute Engine Task Duration by Type"** (the sibling timeseries
+  panel, deliberately *not* titled "Avg..."): CE tasks complete
   every several minutes at best in this environment, so a 5-minute
   `rate()` window almost never contains more than one completed task --
   when it contains exactly one, the classic `rate(_sum[5m]) /
