@@ -290,23 +290,24 @@ flowchart LR
   from [Conventional Commits](https://www.conventionalcommits.org/) since
   the last `vX.Y.Z` tag, via `semantic-release --dry-run` (see
   [Releases](#releases) below) -- no tag or release is created yet, this is
-  purely a preview. Only actually runs `semantic-release` on `push` --
-  `pull_request` runs skip Node/npm entirely and use the latest existing
-  tag instead, via a plain-git step: semantic-release's branch-matching
-  check reads GitHub's own `GITHUB_REF` directly and can never pass on a
-  PR's detached synthetic merge ref regardless of `dryRun`/`ci` options
-  (confirmed by testing), and an approximate version doesn't affect
-  correctness there anyway -- SonarQube's PR-analysis mode defines "new
-  code" as diff-vs-target-branch, not by version. Runs first, sequentially
-  before `build` -- a deliberate ordering choice, not a data dependency
-  (`build` doesn't consume its output): the version for a commit is
-  settled before anything else about
-  it is validated.
-- **`build`** -- fast, cheap validation that the tracked config is
-  well-formed: `docker compose config -q` against the base stack and every
-  profile combination (`monitoring`, `share`, `mcp`, all three), `shellcheck`
-  on `scripts/*.sh`, and JSON validation of the Grafana dashboards. Fails in
-  seconds instead of waiting on the smoke test below.
+  purely a preview. **Only exists on `push`** (job-level `if:`) -- on
+  `pull_request`, GitHub marks it `skipped` without ever starting a
+  runner, zero cost, since semantic-release's branch-matching check reads
+  `GITHUB_REF` directly and can never pass on a PR's detached synthetic
+  merge ref regardless of `dryRun`/`ci` options (confirmed by testing),
+  and an approximate version doesn't affect correctness there anyway --
+  SonarQube's PR-analysis mode defines "new code" as diff-vs-target-branch,
+  not by version. Runs first, sequentially before `build` on `push` -- a
+  deliberate ordering choice, not a data dependency (`build` doesn't
+  consume its output): the version for a commit is settled before
+  anything else about it is validated.
+- **`build`** (needs `version`, explicitly tolerating it being `skipped`
+  as well as `success` -- see above) -- fast, cheap validation that the
+  tracked config is well-formed: `docker compose config -q` against the
+  base stack and every profile combination (`monitoring`, `share`, `mcp`,
+  all three), `shellcheck` on `scripts/*.sh`, and JSON validation of the
+  Grafana dashboards. Fails in seconds instead of waiting on the smoke
+  test below.
 - **`test`** (needs `build`) -- a smoke test: brings up the core + `monitoring`
   profile with throwaway config (`cp .env.example .env`, no real secrets
   needed) via `docker compose up -d --wait`, asserts every container reports
@@ -314,11 +315,12 @@ flowchart LR
   real `NGROK_AUTHTOKEN` and `mcp` adds little smoke-test value beyond what
   core + monitoring already exercises (Postgres, SonarQube, Prometheus,
   Grafana, the exporter, blackbox-exporter).
-- **`sonarqube`** (needs `test` *and* `version`) -- only scans once the
-  config has proven it actually starts a healthy stack, stamped with the
-  version this exact commit will ship as (`-Dsonar.projectVersion=${{
-  needs.test.outputs.version }}`) rather than whatever was last already
-  released. Requires `SONAR_TOKEN` (secret) and `SONAR_HOST_URL` (variable)
+- **`sonarqube`** (needs `test`) -- only scans once the config has proven
+  it actually starts a healthy stack, stamped with the version this exact
+  commit will ship as rather than whatever was last already released. On
+  `pull_request`, where `version` never ran and the threaded value is
+  empty, `sonarqube` resolves its own fallback directly via `git describe
+  --tags`. Requires `SONAR_TOKEN` (secret) and `SONAR_HOST_URL` (variable)
   -- see [GitHub Integration](#github-integration). `sonarqube` only needs
   `test` -- the version value is threaded through `build`'s and `test`'s
   own `outputs:` (each re-exposing the upstream job's output) rather than

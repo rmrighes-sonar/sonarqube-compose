@@ -8,7 +8,9 @@ name: CI
 # since the last tag, via semantic-release --dry-run) and runs first,
 # sequentially before build -- deliberate, not a data dependency (build
 # doesn't consume version's output): the version for a commit should be
-# settled before anything else about that commit is validated.
+# settled before anything else about that commit is validated. It only
+# exists on `push` -- see that job for why -- and `build` explicitly
+# tolerates it being skipped so pull_request runs still get validated.
 #
 # `sonarqube` needs version's *output*, but GitHub Actions only grants
 # output access to jobs listed directly in `needs:` -- listing `version`
@@ -21,7 +23,9 @@ name: CI
 # intermediate job's own `outputs:` instead (build re-exposes
 # needs.version.outputs.version as its own output, test re-exposes
 # build's) -- sonarqube then only needs `test`, and the graph stays a
-# genuinely clean, single-edge-per-job straight line.
+# genuinely clean, single-edge-per-job straight line. sonarqube also
+# supplies its own plain-git fallback for pull_request runs, where the
+# threaded value is empty because version never ran at all.
 #
 # `release` only runs the real (non-dry-run) semantic-release on a `push`
 # to `main`, after `sonarqube` passes -- see README.md's "Releases" section
@@ -34,44 +38,33 @@ on:
 
 jobs:
   version:
-    # Preview-only: computes the next version without tagging/releasing
-    # anything. Runs on every push and PR so sonarqube always has a
-    # forward-looking version to stamp, not just on release-worthy pushes
-    # -- but only the `push` path actually needs semantic-release itself.
-    # On `pull_request`, semantic-release's branch-matching check can never
-    # pass anyway (it reads GITHUB_REF directly, which is always the
-    # detached synthetic merge ref there, confirmed by testing -- see
-    # README.md's "Releases" section), and an approximate version doesn't
-    # affect correctness for PR analyses (SonarQube defines PR "new code"
-    # as diff-vs-target-branch, not by version). So PRs skip Node/npm/
-    # semantic-release entirely via step-level `if:` and just read the
-    # latest tag with plain git -- no point spinning up a whole JS
-    # toolchain for a value that's discarded before use.
+    # Only exists on `push`: semantic-release's branch-matching check reads
+    # GitHub's own GITHUB_REF directly and can never pass on a
+    # `pull_request`'s detached synthetic merge ref regardless of
+    # dryRun/ci options (confirmed by testing), and an approximate version
+    # doesn't affect correctness there anyway -- SonarQube's PR-analysis
+    # mode defines "new code" as diff-vs-target-branch, not by version. A
+    # job-level `if:` here (rather than per-step) means PR runs mark this
+    # `skipped` without ever starting a runner -- zero cost, not just
+    # cheap -- instead of paying for a checkout + shell step just to
+    # discard the result. `sonarqube` supplies its own plain-git fallback
+    # for PR runs where this job never ran at all (see that job below).
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
-      version: ${{ steps.version.outputs.version || steps.fallback.outputs.version }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # semantic-release needs full tag history; git describe does too
-
-      - name: Use latest tag (pull_request only)
-        id: fallback
-        if: github.event_name != 'push'
-        run: |
-          set -euo pipefail
-          TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          fetch-depth: 0 # semantic-release needs full tag history
 
       - uses: actions/setup-node@v5
-        if: github.event_name == 'push'
         with:
           node-version: 22
 
       - name: Install semantic-release
-        if: github.event_name == 'push'
         # No package.json in this repo -- semantic-release runs fine
         # without one (see .releaserc.json for its config), so these are
         # installed ephemerally per-run rather than committing a Node
@@ -88,16 +81,24 @@ jobs:
         # otherwise corrupt $GITHUB_OUTPUT if this whole command's output
         # were naively piped into it.
         id: version
-        if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node .github/semantic-release/print-next-version.mjs
 
   build:
     needs: version
+    # version is *legitimately* skipped on pull_request (see above), which
+    # would otherwise cascade-skip build/test/sonarqube too by default
+    # (needs: requires success(), and skipped != success) -- explicitly
+    # tolerate that here so PRs still actually get validated. A genuine
+    # failure in version (only possible on push) still correctly blocks
+    # everything downstream.
+    if: always() && (needs.version.result == 'success' || needs.version.result == 'skipped')
     # Re-exposes version's output as its own so `test` (and transitively
     # `sonarqube`) can reach it via a single-hop `needs:` chain instead of
     # reaching directly back to `version` -- see the header note above.
+    # Empty on PR runs (version didn't run) -- sonarqube supplies its own
+    # fallback for that case.
     outputs:
       version: ${{ needs.version.outputs.version }}
     # Fast, cheap validation that the tracked config is well-formed --
@@ -195,11 +196,22 @@ jobs:
         with:
           fetch-depth: 0 # disable shallow clone for better analysis relevancy
 
+      - name: Resolve version (falls back to latest tag on pull_request, where the version job never runs)
+        id: resolved_version
+        run: |
+          set -euo pipefail
+          V="${{ needs.test.outputs.version }}"
+          if [ -z "$V" ]; then
+            TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)"
+            V="${TAG#v}"
+          fi
+          echo "value=$V" >> "$GITHUB_OUTPUT"
+
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2 # v7.1.0
         with:
           args: >
-            -Dsonar.projectVersion=${{ needs.test.outputs.version }}
+            -Dsonar.projectVersion=${{ steps.resolved_version.outputs.value }}
           # The action defaults to true (skipping GPG verification of the
           # downloaded Sonar Scanner CLI binary, only checksum-verifying
           # it) -- opt in to full signature verification instead.

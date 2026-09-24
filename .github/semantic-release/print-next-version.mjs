@@ -3,14 +3,14 @@
 // commits since the last `vX.Y.Z` tag, WITHOUT creating a tag or GitHub
 // Release (dryRun).
 //
-// Only ever invoked on `push` events -- see ci.yml's `version` job, which
-// skips this script entirely on `pull_request` (plain-git tag fallback
-// there instead, no Node/npm/semantic-release needed at all): semantic-
-// release's branch-matching check reads GitHub's own GITHUB_REF env var
-// directly and always refuses on a PR's detached synthetic merge ref,
-// confirmed by testing (neither `ci: false` nor a same-named local branch
-// changes that). A `push` to `main` really is checked out on
-// refs/heads/main, so this works here without any tricks.
+// Only ever invoked on `push` events -- ci.yml's `version` job doesn't
+// even exist (job-level `if:`) on `pull_request` runs: semantic-release's
+// branch-matching check reads GitHub's own GITHUB_REF env var directly
+// and always refuses on a PR's detached synthetic merge ref, confirmed by
+// testing (neither `ci: false` nor a same-named local branch changes
+// that). A `push` to `main` really is checked out on refs/heads/main, so
+// this works here without any tricks. `sonarqube` supplies its own
+// plain-git fallback for PR runs, where this script never runs at all.
 //
 // Deliberately writes to $GITHUB_OUTPUT via fs, not by shell-redirecting
 // this script's stdout: semantic-release's own logger writes its progress
