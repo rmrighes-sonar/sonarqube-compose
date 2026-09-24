@@ -52,7 +52,13 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      # contents: write, not just read -- confirmed by testing: even with
+      # dryRun: true, semantic-release's core verification phase performs
+      # an actual git-push permission check (not merely a read-only
+      # preview), and fails outright ("Cannot push to the Git repository",
+      # EGITNOPERMISSION) without write access, despite never actually
+      # creating anything.
+      contents: write
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
