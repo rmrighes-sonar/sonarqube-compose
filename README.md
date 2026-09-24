@@ -309,16 +309,17 @@ flowchart LR
 - **`sonarqube`** (needs `test` *and* `version`) -- only scans once the
   config has proven it actually starts a healthy stack, stamped with the
   version this exact commit will ship as (`-Dsonar.projectVersion=${{
-  needs.version.outputs.version }}`) rather than whatever was last already
+  needs.test.outputs.version }}`) rather than whatever was last already
   released. Requires `SONAR_TOKEN` (secret) and `SONAR_HOST_URL` (variable)
-  -- see [GitHub Integration](#github-integration). Two direct incoming
-  edges here (`test`, `version`) are both genuinely necessary: GitHub
-  Actions only grants output access to jobs listed directly in `needs:`,
-  not transitively-inherited ones, so `version` must be listed here too
-  even though `build`/`test` already chain from it. This differs from a
-  redundant-`needs` graph mistake caught and fixed in the sibling
-  `sonarqube-prometheus-exporter` repo's history, where a job listed
-  upstream jobs it didn't actually need data from, purely for ordering.
+  -- see [GitHub Integration](#github-integration). `sonarqube` only needs
+  `test` -- the version value is threaded through `build`'s and `test`'s
+  own `outputs:` (each re-exposing the upstream job's output) rather than
+  `sonarqube` reaching directly back to `version`, since GitHub Actions
+  only grants output access to jobs listed directly in `needs:`. Reaching
+  back directly would draw a second edge straight into `sonarqube` in
+  addition to the `version -> build -> test` chain -- the same
+  redundant-edge graph mistake caught and fixed on `publish` in the
+  sibling `sonarqube-prometheus-exporter` repo's history.
 - **`release`** (needs `sonarqube`; `push` to `main` only) -- runs
   `semantic-release` for real once the quality gate has passed, cutting the
   actual git tag and GitHub Release.

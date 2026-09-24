@@ -8,16 +8,20 @@ name: CI
 # since the last tag, via semantic-release --dry-run) and runs first,
 # sequentially before build -- deliberate, not a data dependency (build
 # doesn't consume version's output): the version for a commit should be
-# settled before anything else about that commit is validated. `sonarqube`
-# additionally lists `version` directly in `needs:` (alongside `test`) to
-# access its *output* -- required since GitHub Actions only grants output
-# access to jobs listed directly in `needs:`, not transitively-inherited
-# ones, so this draws an unavoidable second edge straight into `sonarqube`
-# even though `build`/`test` already chain from `version` too. That's
-# different from the earlier mistake of listing every upstream job on
-# `publish` in the sibling sonarqube-prometheus-exporter repo purely for
-# ordering with no data need (see that repo's history for the fix) --
-# here the extra edge is a genuine output dependency, not a redundant one.
+# settled before anything else about that commit is validated.
+#
+# `sonarqube` needs version's *output*, but GitHub Actions only grants
+# output access to jobs listed directly in `needs:` -- listing `version`
+# there alongside `test` would draw a second, direct version -> sonarqube
+# edge on the Actions graph in addition to the version -> build -> test
+# chain, which looks exactly like the redundant-edge mistake caught and
+# fixed on `publish` in the sibling sonarqube-prometheus-exporter repo
+# (hovering `version` would visually "skip" build/test straight to
+# sonarqube). Avoided here by threading the value through each
+# intermediate job's own `outputs:` instead (build re-exposes
+# needs.version.outputs.version as its own output, test re-exposes
+# build's) -- sonarqube then only needs `test`, and the graph stays a
+# genuinely clean, single-edge-per-job straight line.
 #
 # `release` only runs the real (non-dry-run) semantic-release on a `push`
 # to `main`, after `sonarqube` passes -- see README.md's "Releases" section
@@ -70,6 +74,11 @@ jobs:
 
   build:
     needs: version
+    # Re-exposes version's output as its own so `test` (and transitively
+    # `sonarqube`) can reach it via a single-hop `needs:` chain instead of
+    # reaching directly back to `version` -- see the header note above.
+    outputs:
+      version: ${{ needs.version.outputs.version }}
     # Fast, cheap validation that the tracked config is well-formed --
     # fails in seconds instead of waiting on the (much slower) smoke test.
     runs-on: ubuntu-latest
@@ -112,6 +121,10 @@ jobs:
 
   test:
     needs: build
+    # Re-exposes build's (pass-through of version's) output the same way,
+    # one more hop down the chain -- see the header note above.
+    outputs:
+      version: ${{ needs.build.outputs.version }}
     # Smoke test: prove the stack this repo ships actually comes up
     # healthy, not just that its YAML parses. Limited to the profiles that
     # don't need a real external secret (`share` needs a real
@@ -148,7 +161,7 @@ jobs:
         run: docker compose down -v
 
   sonarqube:
-    needs: [test, version]
+    needs: test
     # Requires SONAR_TOKEN (secret) and SONAR_HOST_URL (variable) to be
     # set, and the SonarQube server (this repo's own compose stack,
     # tunnelled via ngrok) to be reachable from GitHub-hosted runners at
@@ -165,7 +178,7 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2 # v7.1.0
         with:
           args: >
-            -Dsonar.projectVersion=${{ needs.version.outputs.version }}
+            -Dsonar.projectVersion=${{ needs.test.outputs.version }}
           # The action defaults to true (skipping GPG verification of the
           # downloaded Sonar Scanner CLI binary, only checksum-verifying
           # it) -- opt in to full signature verification instead.
