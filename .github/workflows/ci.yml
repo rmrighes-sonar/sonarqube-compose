@@ -2,20 +2,22 @@ name: CI
 
 # One workflow, one visible pipeline graph:
 #
-#   version ──────────────────┐
-#                              v
-#   build -> test ──────────> sonarqube -> release
+#   version -> build -> test -> sonarqube -> release
 #
 # `version` computes the next semantic version (from Conventional Commits
-# since the last tag, via semantic-release --dry-run) independently/in
-# parallel with build -> test, since it doesn't depend on anything they
-# produce. `sonarqube` is the only job that needs its *output* (to stamp
-# sonar.projectVersion with the version this commit will actually ship as,
-# not a stale already-released one), so it's the only job that lists
-# `version` directly in `needs:` alongside `test` -- both genuinely
-# necessary, unlike the earlier mistake of listing every upstream job on
-# `publish` in the sibling sonarqube-prometheus-exporter repo just for
-# ordering (see that repo's history for the fix).
+# since the last tag, via semantic-release --dry-run) and runs first,
+# sequentially before build -- deliberate, not a data dependency (build
+# doesn't consume version's output): the version for a commit should be
+# settled before anything else about that commit is validated. `sonarqube`
+# additionally lists `version` directly in `needs:` (alongside `test`) to
+# access its *output* -- required since GitHub Actions only grants output
+# access to jobs listed directly in `needs:`, not transitively-inherited
+# ones, so this draws an unavoidable second edge straight into `sonarqube`
+# even though `build`/`test` already chain from `version` too. That's
+# different from the earlier mistake of listing every upstream job on
+# `publish` in the sibling sonarqube-prometheus-exporter repo purely for
+# ordering with no data need (see that repo's history for the fix) --
+# here the extra edge is a genuine output dependency, not a redundant one.
 #
 # `release` only runs the real (non-dry-run) semantic-release on a `push`
 # to `main`, after `sonarqube` passes -- see README.md's "Releases" section
@@ -67,6 +69,7 @@ jobs:
         run: node .github/semantic-release/print-next-version.mjs
 
   build:
+    needs: version
     # Fast, cheap validation that the tracked config is well-formed --
     # fails in seconds instead of waiting on the (much slower) smoke test.
     runs-on: ubuntu-latest

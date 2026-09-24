@@ -283,17 +283,17 @@ Every push to `main` and every pull request runs a single workflow,
 
 ```mermaid
 flowchart LR
-    version[Compute next version] --> sonar[SonarQube Analysis]
-    build[Build] --> test[Test] --> sonar
-    sonar --> release[Release]
+    version[Compute next version] --> build[Build] --> test[Test] --> sonar[SonarQube Analysis] --> release[Release]
 ```
 
 - **`version`** -- computes the next [semantic version](https://semver.org/)
   from [Conventional Commits](https://www.conventionalcommits.org/) since
   the last `vX.Y.Z` tag, via `semantic-release --dry-run` (see
   [Releases](#releases) below) -- no tag or release is created yet, this is
-  purely a preview. Runs independently/in parallel with `build`/`test`
-  since it doesn't depend on anything they produce.
+  purely a preview. Runs first, sequentially before `build` -- a deliberate
+  ordering choice, not a data dependency (`build` doesn't consume its
+  output): the version for a commit is settled before anything else about
+  it is validated.
 - **`build`** -- fast, cheap validation that the tracked config is
   well-formed: `docker compose config -q` against the base stack and every
   profile combination (`monitoring`, `share`, `mcp`, all three), `shellcheck`
@@ -312,10 +312,13 @@ flowchart LR
   needs.version.outputs.version }}`) rather than whatever was last already
   released. Requires `SONAR_TOKEN` (secret) and `SONAR_HOST_URL` (variable)
   -- see [GitHub Integration](#github-integration). Two direct incoming
-  edges here (`test`, `version`) are both genuinely necessary -- this
-  differs from a redundant-`needs` graph mistake caught and fixed in the
-  sibling `sonarqube-prometheus-exporter` repo's history, where a job
-  listed upstream jobs it didn't actually need data from.
+  edges here (`test`, `version`) are both genuinely necessary: GitHub
+  Actions only grants output access to jobs listed directly in `needs:`,
+  not transitively-inherited ones, so `version` must be listed here too
+  even though `build`/`test` already chain from it. This differs from a
+  redundant-`needs` graph mistake caught and fixed in the sibling
+  `sonarqube-prometheus-exporter` repo's history, where a job listed
+  upstream jobs it didn't actually need data from, purely for ordering.
 - **`release`** (needs `sonarqube`; `push` to `main` only) -- runs
   `semantic-release` for real once the quality gate has passed, cutting the
   actual git tag and GitHub Release.
