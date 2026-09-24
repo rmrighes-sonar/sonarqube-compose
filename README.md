@@ -108,25 +108,23 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   ever completed instead of flickering to zero between runs.
 
   **"Most Recent Compute Engine Task Duration by Type"** (the sibling
-  timeseries panel, deliberately *not* titled "Avg..."): still uses the
-  same `rate(..._sum[5m]) / rate(..._count[5m])` expression, but that
-  expression doesn't behave like an average here either -- CE tasks
-  complete every several minutes at best in this environment, so a
-  5-minute window almost never contains more than one completed task.
-  When it contains zero, both rates are `0` and Prometheus emits an
-  explicit `NaN` (confirmed live) rather than `0`, which Grafana renders
-  as a genuine gap in the line, not a dip -- so most of the time, for any
-  project/type combination that hasn't just finished a task, there's
-  simply no line being drawn at all. When the window *does* contain
-  exactly one event, the expression reduces to approximately that single
+  timeseries panel, deliberately *not* titled "Avg..."): CE tasks complete
+  every several minutes at best in this environment, so a 5-minute
+  `rate()` window almost never contains more than one completed task --
+  when it contains exactly one, the classic `rate(_sum[5m]) /
+  rate(_count[5m])` expression reduces to approximately that single
   task's real duration (verified against `ce.log`'s own `time=<N>ms` for
-  the same task, ~0.06% apart) -- i.e. this panel is really "the last
-  task's duration, plotted intermittently," not an average of multiple
-  observations, hence the honest title. `fieldConfig.defaults.custom.spanNulls: true`
-  connects those `NaN` gaps into a continuous line (holding/interpolating
-  the last known value) purely for visual continuity -- be aware a long
-  flat stretch on this graph can mean "genuinely idle," not "steady
-  duration," since it's drawn across gaps with no real data underneath.
+  the same task, ~0.06% apart), i.e. this panel is really "the last
+  task's duration, plotted intermittently," not a true average of
+  multiple observations -- hence the honest title. When the window
+  contains *zero* completed tasks, both rates are `0`, and a plain
+  division would give `0/0 = NaN` (confirmed live), which Grafana renders
+  as a gap in the line rather than a drop to zero. The denominator is
+  wrapped in `clamp_min(..., 1e-9)` specifically to avoid that --
+  `0 / 1e-9` evaluates to a real `0` instead of `NaN`, so idle periods
+  correctly show the line dropping to zero (matching the visual
+  convention of e.g. request-rate panels) rather than a gap or an
+  interpolated flat line across a stretch with no real data underneath.
 
   **Troubleshooting "Could not find plugin definition for data source" /
   panels showing the Prometheus datasource as missing:** Grafana's

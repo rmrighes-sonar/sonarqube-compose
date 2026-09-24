@@ -208,12 +208,12 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "rate(sonarqube_compute_engine_tasks_running_duration_seconds_sum[5m]) / rate(sonarqube_compute_engine_tasks_running_duration_seconds_count[5m])",
+          "expr": "rate(sonarqube_compute_engine_tasks_running_duration_seconds_sum[5m]) / clamp_min(rate(sonarqube_compute_engine_tasks_running_duration_seconds_count[5m]), 1e-9)",
           "refId": "A",
           "legendFormat": "{{task_type}}"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "fillOpacity": 12, "spanNulls": true } } }
+      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "fillOpacity": 12 } } }
     },
     {
       "id": 17,
