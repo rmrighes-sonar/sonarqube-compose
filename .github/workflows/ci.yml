@@ -143,15 +143,18 @@ jobs:
 
   test:
     needs: build
-    # Explicit if: checking only build's own result, not the default
-    # implicit success() -- that default checks the *entire* transitive
-    # ancestor chain (including version, several hops back), not just
-    # test's direct needs:. Since version is legitimately skipped on every
-    # pull_request, the default would cascade-skip test (and sonarqube,
-    # and release) even though build itself succeeded -- confirmed by
-    # testing. Restricting the check to build's own result breaks that
-    # unwanted propagation.
-    if: needs.build.result == 'success'
+    # always() && is required, not decorative: GitHub skips *evaluating* a
+    # job's if: entirely (short-circuiting straight to "skipped") whenever
+    # any ancestor was skipped, unless the condition contains always(),
+    # success(), failure(), or cancelled() -- confirmed by testing (a bare
+    # `needs.build.result == 'success'` here still cascaded to "skipped"
+    # even though build had actually succeeded, because version -- an
+    # ancestor via build -- is legitimately skipped on every pull_request).
+    # always() forces evaluation; the && condition then does the real
+    # check, restricted to build's own result rather than the default
+    # implicit success(), which checks the *entire* transitive ancestor
+    # chain rather than just this job's direct needs:.
+    if: always() && needs.build.result == 'success'
     # Re-exposes build's (pass-through of version's) output the same way,
     # one more hop down the chain -- see the header note above.
     outputs:
@@ -193,9 +196,10 @@ jobs:
 
   sonarqube:
     needs: test
-    # Same reasoning as test's if: above -- restrict to test's own result,
-    # not the transitive-ancestor-checking default success().
-    if: needs.test.result == 'success'
+    # Same reasoning as test's if: above -- always() forces evaluation
+    # despite version's skip further up the chain; the && condition
+    # restricts to test's own result.
+    if: always() && needs.test.result == 'success'
     # Requires SONAR_TOKEN (secret) and SONAR_HOST_URL (variable) to be
     # set, and the SonarQube server (this repo's own compose stack,
     # tunnelled via ngrok) to be reachable from GitHub-hosted runners at
@@ -235,13 +239,12 @@ jobs:
   release:
     needs: sonarqube
     # Only cut a real release from main, and only once the quality gate has
-    # passed. Checks needs.sonarqube.result directly rather than the bare
-    # success() function -- success() with no arguments checks the entire
-    # transitive ancestor chain (including version, which is legitimately
-    # skipped on every pull_request -- moot here since this is already
-    # push-gated, but kept consistent with test/sonarqube's fix above and
-    # explicit about exactly what's being checked).
-    if: github.event_name == 'push' && needs.sonarqube.result == 'success'
+    # passed. always() forces if: evaluation despite version's skip
+    # further up the chain on pull_request runs (moot for release itself,
+    # since it's already push-gated below, but needed for consistency --
+    # without it this job would show "skipped" on every push too, for the
+    # same short-circuiting reason as test/sonarqube above).
+    if: always() && github.event_name == 'push' && needs.sonarqube.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
