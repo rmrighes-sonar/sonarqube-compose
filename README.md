@@ -102,16 +102,23 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   for most rows most of the time -- it only shows a nonzero value in the
   brief window right after a task actually finishes, then decays back to
   `0` as that event ages out. The table now instead divides the raw
-  cumulative counters directly (`sum by (project_key) (..._sum{task_type="REPORT"})
-  / sum by (project_key) (..._count{task_type="REPORT"})`, no time window
-  at all) -- the lifetime average duration per project, which stays
-  populated as soon as at least one task has ever completed instead of
-  flickering to zero between runs. Filtered to `task_type="REPORT"`
-  (project analysis) specifically -- SonarQube's Compute Engine reuses the
-  same `project_key` label for portfolio/application keys under
-  `task_type="VIEW_REFRESH"`, which isn't a "project" and doesn't belong
-  in a panel titled "by project" (it showed up as e.g.
-  `github_rmrighes-sonar` before this filter was added).
+  cumulative counters directly (`sum by (...) (..._sum) / sum by (...)
+  (..._count)`, no time window at all) -- the lifetime average duration
+  per project, which stays populated as soon as at least one task has
+  ever completed instead of flickering to zero between runs.
+
+  SonarQube's Compute Engine reuses the same `project_key` label for
+  portfolio/application keys too, under `task_type="VIEW_REFRESH"` instead
+  of `task_type="REPORT"` (regular project analysis) -- so without any
+  handling, a portfolio like `github_rmrighes-sonar` shows up as a row
+  indistinguishable from a real project. Rather than filtering portfolios
+  out, the query uses `label_replace()` twice to turn the raw
+  `task_type` value into a clean **`type`** column (`Project` for
+  `REPORT`, `Portfolio` for `VIEW_REFRESH`), then re-aggregates by
+  `(project_key, type)` to drop the now-redundant raw `task_type` label
+  from the result -- so both project and portfolio rows stay visible,
+  clearly labeled, instead of either being hidden or shown with a raw,
+  unexplained SonarQube-internal task-type string.
 
   **"Compute Engine Task Duration by Type"** (the sibling timeseries
   panel, deliberately *not* titled "Avg..."): CE tasks complete
