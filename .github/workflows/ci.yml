@@ -49,8 +49,11 @@ jobs:
         # No package.json in this repo -- semantic-release runs fine
         # without one (see .releaserc.json for its config), so these are
         # installed ephemerally per-run rather than committing a Node
-        # toolchain into an otherwise Node-free repo.
-        run: npm install --no-save semantic-release conventional-changelog-conventionalcommits
+        # toolchain into an otherwise Node-free repo. Exact-pinned
+        # (no ^/~ range) and --ignore-scripts: unpinned + script-executing
+        # installs of third-party packages both flagged by SonarQube
+        # (githubactions:S8543, S6505) as supply-chain risks.
+        run: npm install --no-save --ignore-scripts semantic-release@25.0.9 conventional-changelog-conventionalcommits@8.0.1
 
       - name: Compute next version (dry run, no tag/release created)
         # Writes to $GITHUB_OUTPUT itself (see the script) rather than via
@@ -187,9 +190,16 @@ jobs:
           node-version: 22
 
       - name: Install semantic-release
-        run: npm install --no-save semantic-release conventional-changelog-conventionalcommits
+        run: npm install --no-save --ignore-scripts semantic-release@25.0.9 conventional-changelog-conventionalcommits@8.0.1
 
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+        # Invoke the just-installed local binary directly rather than
+        # `npx semantic-release` -- SonarQube flags npx (githubactions:S6505)
+        # since it can transparently install and run an arbitrary package's
+        # lifecycle scripts on demand if one isn't already present locally.
+        # It never would be here in practice (installed in the previous
+        # step, same job), but the direct path makes that guarantee
+        # explicit instead of implicit.
+        run: ./node_modules/.bin/semantic-release
