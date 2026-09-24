@@ -346,6 +346,43 @@ its logs).
   index needs headroom beyond the container's own `deploy.resources` limits
   configured in `compose.yaml`.
 
+## JVM heap sizing
+
+SonarQube runs three separate JVMs inside the `sonarqube` container:
+**Web** (UI/API), **Compute Engine** (background task processing), and an
+embedded **Elasticsearch** ("search", the index behind global/project
+search and issue queries). Each has its own heap, sized in `compose.yaml`
+via `SONAR_WEB_JAVAOPTS`, `SONAR_CE_JAVAOPTS`, and `SONAR_SEARCH_JAVAOPTS`.
+
+This image's un-tuned defaults (visible via
+`docker compose exec sonarqube grep javaOpts /opt/sonarqube/conf/sonar.properties`)
+total up to ~6G of declared JVM memory (Web `-Xmx1G`, CE `-Xmx2G`, Search
+`-Xmx2G` + `1G` direct memory) against the container's 4g memory limit — a
+gap normally invisible under light, bursty local demo traffic, but a latent
+OOM-kill risk under real concurrent load, since Docker enforces the
+container limit as a hard cap regardless of what the JVMs think they're
+allowed to use.
+
+`compose.yaml` right-sizes all three instead for this stack's actual
+profile (one or a few small local projects, one analysis at a time, one
+interactive user): Web `-Xmx512m`, CE `-Xmx1G`, Search `-Xmx768m`/`-Xms768m`
++ `256m` direct memory — 2.56G declared max, leaving ~1.5G of the 4g limit
+for per-process overhead (metaspace, thread stacks, JIT code cache). It also
+adds `-XX:+ExitOnOutOfMemoryError` (fail fast instead of limping on
+degraded) and points `-XX:HeapDumpPath` at the already-mounted
+`sonarqube_logs` volume, so any OOM heap dump survives a container restart
+for post-mortem debugging instead of landing on ephemeral container-local
+disk.
+
+**When to raise these:** analyzing larger/more projects, increasing
+Compute Engine worker count (**Administration > Projects > Background
+Tasks > Number of Workers**, an Enterprise/Data Center Edition feature —
+scale CE heap roughly proportionally to worker count), or seeing OOM kills
+in `docker compose logs sonarqube` / `docker stats`. Scale
+`deploy.resources.limits.memory`/`reservations.memory` on the `sonarqube`
+service up alongside any heap increase — the container limit is a hard
+ceiling above the JVMs' own heaps plus their fixed overhead.
+
 ## Image policy
 
 This stack intentionally tracks the latest release on every image

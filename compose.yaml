@@ -48,6 +48,55 @@ services:
       # samples) regardless of traffic, breaking the "Web & API performance"
       # and "DB query rate/latency" panels in the Grafana Health dashboard.
       SONAR_PERFORMANCEMONITORING_ENABLED: "true"
+      # JVM heap tuning for the 3 processes SonarQube runs inside this
+      # container (Web, Compute Engine, embedded Elasticsearch/"search").
+      # These *_JAVAOPTS vars fully REPLACE that process's default JVM
+      # options (unlike *_JAVAADDITIONALOPTS, which appends and therefore
+      # can't override -Xmx -- the default wins if duplicated), so each
+      # value below is a complete option string, not a delta.
+      #
+      # This image's un-tuned defaults (see /opt/sonarqube/conf/sonar.properties
+      # in the running container) are sized for general-purpose instances:
+      # web -Xmx1G, ce -Xmx2G, search -Xmx2G + 1G direct memory --
+      # i.e. up to ~6G of declared JVM memory across the 3 processes, against
+      # this service's 4g `deploy.resources.limits.memory` below. That gap is
+      # normally masked by low, bursty local demo traffic (one project, one
+      # analysis at a time), but is a latent OOM-kill risk under any real
+      # concurrent load, since Docker enforces the container limit as a hard
+      # cap regardless of what the JVMs think they're allowed to use.
+      #
+      # Right-sized instead for this stack's actual profile (single/few
+      # small local projects, one analysis at a time, one interactive user):
+      # declared max is Web 512m + CE 1G + Search 768m heap/768m off-heap +
+      # 256m direct memory = 2.56G, leaving ~1.5G of the 4g limit for
+      # per-process JVM overhead (metaspace, thread stacks, JIT code cache)
+      # -- comfortable margin instead of a hard cap that's smaller than the
+      # JVMs' own ceiling. -Xms is set low for Web/CE (idle between
+      # requests/analyses, no benefit to pre-reserving) but must equal -Xmx
+      # for Search (Elasticsearch requirement, unchanged from the default).
+      #
+      # -XX:+ExitOnOutOfMemoryError (added, not in the defaults) fails a
+      # process fast on real OOM instead of limping on in a degraded state;
+      # -XX:HeapDumpPath points dumps at the already-mounted, persistent
+      # `sonarqube_logs` volume (default dump location is un-mounted
+      # container-local disk, lost on recreate) for post-mortem debugging.
+      #
+      # Scale these up (and raise `deploy.resources.limits/reservations`
+      # accordingly) if you start analyzing larger/more projects, increase
+      # Compute Engine worker count, or see OOM kills in
+      # `docker compose logs sonarqube` / `docker stats`.
+      SONAR_WEB_JAVAOPTS: >-
+        -Xmx512m -Xms256m
+        -XX:+HeapDumpOnOutOfMemoryError -XX:+ExitOnOutOfMemoryError
+        -XX:HeapDumpPath=/opt/sonarqube/logs/
+      SONAR_CE_JAVAOPTS: >-
+        -Xmx1G -Xms256m
+        -XX:+HeapDumpOnOutOfMemoryError -XX:+ExitOnOutOfMemoryError
+        -XX:HeapDumpPath=/opt/sonarqube/logs/
+      SONAR_SEARCH_JAVAOPTS: >-
+        -Xmx768m -Xms768m -XX:MaxDirectMemorySize=256m
+        -XX:+HeapDumpOnOutOfMemoryError -XX:+ExitOnOutOfMemoryError
+        -XX:HeapDumpPath=/opt/sonarqube/logs/
     ports:
       - "127.0.0.1:9000:9000"
     volumes:
@@ -80,7 +129,12 @@ services:
           cpus: "2"
           memory: 4g
         reservations:
-          memory: 2g
+          # Lowered from 2g to match the JVM tuning above: idle steady-state
+          # baseline is Web 256m + CE 256m + Search 768m (Xms) = ~1.3G, plus
+          # per-process overhead -- 1.5g comfortably covers that without
+          # reserving memory the tuned heaps no longer need at rest. The 4g
+          # `limits.memory` above (the hard cap) is unchanged.
+          memory: 1.5g
     restart: unless-stopped
 
   mcp:
