@@ -2,7 +2,7 @@
   "title": "SonarQube Server Health",
   "uid": "sonarqube-health",
   "schemaVersion": 39,
-  "version": 11,
+  "version": 13,
   "tags": ["sonarqube", "health"],
   "time": { "from": "now-6h", "to": "now" },
   "panels": [
@@ -16,16 +16,26 @@
     },
     {
       "id": 2,
-      "title": "SonarQube reachability",
+      "title": "Overall System",
+      "description": "SonarQube's real, aggregate GREEN/YELLOW/RED system health (matches the System Info page exactly) -- sourced from sonarqube-prometheus-exporter's sonarqube_system_health_status metric (GET /api/system/health), which requires the exporter's token to have the 'Administer System' permission. Encoded as a single 0/1/2 value (RED/YELLOW/GREEN) since exactly one status is active at a time.",
       "type": "stat",
       "gridPos": { "h": 5, "w": 4, "x": 0, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "up{job=\"sonarqube\"}", "refId": "A" }],
+      "targets": [
+        {
+          "expr": "sum(\n  (sonarqube_system_health_status{status=\"GREEN\"} * 2)\n  or (sonarqube_system_health_status{status=\"YELLOW\"} * 1)\n  or (sonarqube_system_health_status{status=\"RED\"} * 0)\n)",
+          "refId": "A"
+        }
+      ],
       "options": { "graphMode": "none" },
       "fieldConfig": {
         "defaults": {
           "mappings": [
-            { "type": "value", "options": { "0": { "text": "Down", "color": "red" }, "1": { "text": "Up", "color": "green" } } }
+            { "type": "value", "options": {
+              "0": { "text": "Red", "color": "red" },
+              "1": { "text": "Yellow", "color": "orange" },
+              "2": { "text": "Green", "color": "green" }
+            } }
           ]
         }
       }
