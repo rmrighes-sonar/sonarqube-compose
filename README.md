@@ -93,6 +93,24 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   metrics are genuinely in seconds (spot-checked against real request
   timing) and correctly use `unit: "s"`.
 
+  **"Compute Engine task duration by project" uses a lifetime average, not
+  a rolling rate:** `rate(..._sum[5m])` -- the table's original query --
+  measures how much the cumulative counter increased in the trailing
+  5-minute window. Since SonarQube analyses run sporadically rather than
+  continuously, most 5-minute windows have zero completed tasks for a
+  given project/type, so `rate()` correctly (but unhelpfully) reports `0`
+  for most rows most of the time -- it only shows a nonzero value in the
+  brief window right after a task actually finishes, then decays back to
+  `0` as that event ages out. The table now instead divides the raw
+  cumulative counters directly (`sum by (...) (..._sum) / sum by (...)
+  (..._count)`, no time window at all) -- the lifetime average duration
+  per project/type, which stays populated as soon as at least one task has
+  ever completed instead of flickering to zero between runs. The
+  "Avg Compute Engine task duration by type" timeseries panel still uses
+  the `rate()`-based version deliberately -- occasional dips toward zero
+  read naturally on a time-series graph of a rolling rate, unlike blank
+  rows in a comparison table.
+
   **Troubleshooting "Could not find plugin definition for data source" /
   panels showing the Prometheus datasource as missing:** Grafana's
   background plugin installer re-checks every core-bundled plugin
