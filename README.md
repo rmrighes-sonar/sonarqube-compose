@@ -303,14 +303,31 @@ flowchart LR
   anything else about it is validated.
 - **`lint`** (needs `version`, explicitly tolerating it being `skipped`
   as well as `success` -- see above) -- fast, cheap *static* validation
-  that the tracked config is well-formed: `docker compose config -q`
-  against the base stack and every profile combination (`monitoring`,
-  `share`, `mcp`, all three), `shellcheck` on `scripts/*.sh`, and JSON
-  validation of the Grafana dashboards. Builds no artifact -- unlike the
-  sibling `sonarqube-prometheus-exporter` repo's `build` job, which really
-  does compile Go binaries; this repo has no build output of its own, so
-  `lint` is the more accurate name for what's purely a linting pass.
-  Fails in seconds instead of waiting on the smoke test below.
+  that every tracked config file is well-formed. Builds no artifact --
+  unlike the sibling `sonarqube-prometheus-exporter` repo's `build` job,
+  which really does compile Go binaries; this repo has no build output of
+  its own, so `lint` is the more accurate name for what's purely a
+  linting pass. Fails in seconds instead of waiting on the smoke test
+  below. Checks:
+  - `docker compose config -q` against the base stack and every profile
+    combination (`monitoring`, `share`, `mcp`, all three)
+  - `shellcheck` on `scripts/*.sh`
+  - `jq empty` on the Grafana dashboard JSON and `.releaserc.json` -- the
+    latter is only ever read by `version`/`release`, and `version` doesn't
+    even run on `pull_request`, so a broken `.releaserc.json` would
+    otherwise sail through an entire PR unnoticed and only blow up on the
+    real `push` to `main` that finally invokes it, breaking `release` in
+    production
+  - `yq eval .` on the Grafana provisioning YAML and `prometheus/blackbox.yml`
+  - `promtool check config` on `prometheus/prometheus.yml` -- semantic
+    validation (scrape/relabel configs), not just YAML syntax; a malformed
+    scrape job can otherwise fail silently (Prometheus just skips it)
+    rather than erroring loudly, so `smoke-test`'s healthcheck alone
+    wouldn't catch it
+  - a drift check confirming every `${VAR}` referenced in `compose.yaml`
+    has a corresponding entry in `.env.example`, and vice versa
+  - `actionlint` on this workflow file itself (downloaded as a pinned,
+    checksum-verified release binary)
 - **`smoke-test`** (needs `lint`) -- a real runtime *integration* test,
   not a unit test: brings up the core + `monitoring` profile with
   throwaway config (`cp .env.example .env`, no real secrets needed) via
