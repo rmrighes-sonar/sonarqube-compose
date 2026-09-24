@@ -229,7 +229,14 @@
           "instant": true
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "ms" } }
+      "fieldConfig": {
+        "defaults": { "unit": "ms" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "project_key" }, "properties": [{ "id": "custom.width", "value": 250 } ] },
+          { "matcher": { "id": "byName", "options": "type" }, "properties": [{ "id": "custom.width", "value": 100 } ] },
+          { "matcher": { "id": "byName", "options": "Value" }, "properties": [{ "id": "custom.width", "value": 110 } ] }
+        ]
+      }
     },
 
     {
