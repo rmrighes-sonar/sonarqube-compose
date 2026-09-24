@@ -279,20 +279,21 @@ itself.
 ## CI Pipeline
 
 Every push to `main` and every pull request runs a single workflow,
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml), with three jobs
-chained via `needs:` so the whole thing renders as one linear graph on the
-Actions run page:
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml):
 
 ```mermaid
 flowchart LR
-    changes[Detect changed files] --> build[Build] --> test[Test] --> sonar[SonarQube Analysis]
+    version[Compute next version] --> sonar[SonarQube Analysis]
+    build[Build] --> test[Test] --> sonar
+    sonar --> release[Release]
 ```
 
-- **`changes`** -- always runs first; diffs the push/PR against its base
-  commit to detect whether *only* `CHANGELOG.md` /
-  `.release-please-manifest.json` changed (i.e. this is release-please's own
-  commit). See "Release commits are skipped" below for why this exists as a
-  job instead of a simpler trigger-level filter.
+- **`version`** -- computes the next [semantic version](https://semver.org/)
+  from [Conventional Commits](https://www.conventionalcommits.org/) since
+  the last `vX.Y.Z` tag, via `semantic-release --dry-run` (see
+  [Releases](#releases) below) -- no tag or release is created yet, this is
+  purely a preview. Runs independently/in parallel with `build`/`test`
+  since it doesn't depend on anything they produce.
 - **`build`** -- fast, cheap validation that the tracked config is
   well-formed: `docker compose config -q` against the base stack and every
   profile combination (`monitoring`, `share`, `mcp`, all three), `shellcheck`
@@ -305,27 +306,19 @@ flowchart LR
   real `NGROK_AUTHTOKEN` and `mcp` adds little smoke-test value beyond what
   core + monitoring already exercises (Postgres, SonarQube, Prometheus,
   Grafana, the exporter, blackbox-exporter).
-- **`sonarqube`** (needs `test`) -- only scans once the config has proven it
-  actually starts a healthy stack. Requires `SONAR_TOKEN` (secret) and
-  `SONAR_HOST_URL` (variable) -- see [GitHub Integration](#github-integration).
-
-**Release commits are skipped -- via job-level `if:`, not `paths-ignore`:**
-release-please's Release PRs (and the commit that merges one) only ever
-touch `CHANGELOG.md` / `.release-please-manifest.json`, so there's nothing
-new for `build`/`test`/`sonarqube` to validate there -- see
-[Releases](#releases) below. It's tempting to skip this with `paths-ignore`
-on the workflow's triggers, but **don't**: `build`/`test`/`sonarqube` are
-required status checks in branch protection, and a workflow that never runs
-at all for a given commit leaves those checks stuck as "Expected" forever
--- unmergeable, with no override since `main`'s protection also enforces
-against admins. Instead, `changes` always runs (so the checks always get a
-chance to report), and `build` skips its real work via
-`if: needs.changes.outputs.release_only != 'true'` -- `test` and
-`sonarqube` then skip too automatically, cascading through their `needs:`
-chain (a job's default condition requires its dependencies to have
-succeeded; skipped doesn't count as succeeded). A job skipped via `if:`
-reports conclusion "skipped", which GitHub explicitly treats as passing for
-required status checks -- unlike a check that never ran.
+- **`sonarqube`** (needs `test` *and* `version`) -- only scans once the
+  config has proven it actually starts a healthy stack, stamped with the
+  version this exact commit will ship as (`-Dsonar.projectVersion=${{
+  needs.version.outputs.version }}`) rather than whatever was last already
+  released. Requires `SONAR_TOKEN` (secret) and `SONAR_HOST_URL` (variable)
+  -- see [GitHub Integration](#github-integration). Two direct incoming
+  edges here (`test`, `version`) are both genuinely necessary -- this
+  differs from a redundant-`needs` graph mistake caught and fixed in the
+  sibling `sonarqube-prometheus-exporter` repo's history, where a job
+  listed upstream jobs it didn't actually need data from.
+- **`release`** (needs `sonarqube`; `push` to `main` only) -- runs
+  `semantic-release` for real once the quality gate has passed, cutting the
+  actual git tag and GitHub Release.
 
 **`main` is protected:** merging requires an open pull request with `build`,
 `test`, and `sonarqube` all green, and direct pushes/force-pushes/deletion
@@ -344,44 +337,60 @@ until the local stack is back up.
 ## Releases
 
 Versioning follows [Semantic Versioning](https://semver.org/), automated by
-[release-please](https://github.com/googleapis/release-please) (see
-`.github/workflows/release-please.yml`,
-[release-please-config.json](release-please-config.json), and
-[.release-please-manifest.json](.release-please-manifest.json)). Unlike
-`sonarqube-prometheus-exporter`, this repo doesn't publish a build artifact of its own
--- a release here is just a version marker + generated `CHANGELOG.md` entry
-for the stack's compose/dashboard/script configuration, useful as a
-"known-good checkpoint" to reference or roll back to.
+[semantic-release](https://semantic-release.gitbook.io/) (see
+[`.releaserc.json`](.releaserc.json) and the `version`/`release` jobs in
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml)). Unlike
+`sonarqube-prometheus-exporter`, this repo doesn't publish a build artifact
+of its own -- a release here is just a version marker + generated GitHub
+Release notes for the stack's compose/dashboard/script configuration,
+useful as a "known-good checkpoint" to reference or roll back to.
 
-To get a correct version bump, commits to `main` must follow
-[Conventional Commits](https://www.conventionalcommits.org/):
+**Every merge to `main` becomes its own tagged release** -- this
+deliberately replaced release-please's model of batching several commits
+into a standing "Release PR" merged later. To get a correct version bump,
+commits must follow
+[Conventional Commits](https://www.conventionalcommits.org/); the bump type
+is decided by [`.releaserc.json`](.releaserc.json)'s `releaseRules`:
 
-- `fix:` -- patch release (e.g. a dashboard/healthcheck bug fix).
 - `feat:` -- minor release (e.g. a new dashboard or compose service).
-- `fix!:` / `feat!:` / a `BREAKING CHANGE:` footer -- major release (e.g. a
-  renamed environment variable or removed service).
-- `chore:`, `docs:`, `refactor:`, `test:`, `ci:` -- no release triggered on
-  their own.
+- everything else with a recognized type (`fix:`, `perf:`, `docs:`,
+  `chore:`, `refactor:`, `test:`, `build:`, `ci:`, ...) -- patch release.
+  Unlike typical Conventional Commits tooling (including release-please,
+  used previously here), `chore:`/`docs:`/`ci:`/etc. are **not** excluded
+  from releasing -- every merge gets a version, per this repo's policy that
+  any change to `main` should be traceable to a release.
+- `!` after the type/scope, or a `BREAKING CHANGE:` footer -- major release
+  regardless of type (e.g. a renamed environment variable or removed
+  service).
 
-release-please maintains a standing "Release PR" that accumulates changes
-since the last release; merging it cuts the actual git tag, GitHub Release,
-and `CHANGELOG.md` entry. (This repo previously had one ad hoc, non-standard
-tag, `VER-1.0.0` -- harmless leftover, safe to ignore; release-please's own
-tags follow the standard `vX.Y.Z` format going forward.)
+**Squash-merge caveat:** GitHub squash-merges a PR into a single commit on
+`main`, and semantic-release (like release-please before it) only reads
+*that* commit's header line to classify the whole PR -- not each original
+commit buried in the squash body. If a PR mixes commit types (e.g. a `ci:`
+commit and a `fix:` commit), title the PR after its most significant
+change, since the PR title becomes the squash commit's header and therefore
+the release-determining line.
 
-**CI approval gate on the Release PR:** without a `RELEASE_PLEASE_TOKEN`
-repo secret, the Release PR is authored by `github-actions[bot]` (via the
-default `GITHUB_TOKEN`), and GitHub requires a maintainer to manually
-approve its `pull_request`-triggered CI runs before they execute --
-[a same-repo, non-fork security gate GitHub added
-2026-06-11](https://github.blog/changelog/2026-06-11-bot-created-pull-requests-can-run-workflows-if-approved/)
-that applies to every bot-authored PR, not just first-time contributors.
-This recurs on every release until fixed. To remove it, add a repo secret
-`RELEASE_PLEASE_TOKEN` (a fine-grained PAT scoped to this repo with
-**Contents: read/write** and **Pull requests: read/write**, or a GitHub App
-installation token) -- `.github/workflows/release-please.yml` already wires
-it in with a `GITHUB_TOKEN` fallback, so nothing else needs to change once
-the secret exists.
+There is no more `CHANGELOG.md` file being updated -- release notes are
+generated by `@semantic-release/release-notes-generator` and published
+directly to each
+[GitHub Release](https://github.com/rmrighes-sonar/sonarqube-compose/releases).
+The old `CHANGELOG.md` is kept as a frozen historical record of everything
+through `v0.5.2` (release-please's last release before this switch).
+
+Because `semantic-release` only ever creates a **tag**, never a commit,
+cutting a release doesn't push anything new to `main` -- so there's no
+"release commit" for `ci.yml` to redundantly re-validate or re-scan, and no
+required-status-check deadlock risk the way there was with
+release-please's PR-merge model (see git history for that fix, no longer
+applicable here). (This repo previously had one ad hoc, non-standard tag,
+`VER-1.0.0` -- harmless leftover, safe to ignore; `vX.Y.Z` is the standard
+format going forward.)
+
+The old release-please setup also had a recurring "CI approval gate" issue
+(bot-authored PRs needing manual workflow approval, since its Release PR
+was authored by `github-actions[bot]`) -- moot now, since `semantic-release`
+never opens a PR at all.
 
 ## Prerequisites
 

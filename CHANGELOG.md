@@ -1,5 +1,13 @@
 # Changelog
 
+> **Historical record, no longer updated.** This repo switched from
+> release-please to [semantic-release](https://semantic-release.gitbook.io/)
+> (see the "Releases" section of README.md) -- every merge to `main` now
+> gets its own tagged version and release notes directly on the
+> [GitHub Releases page](https://github.com/rmrighes-sonar/sonarqube-compose/releases)
+> instead of an in-repo file. Entries below cover everything up through
+> `v0.5.2`.
+
 ## [0.5.2](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.5.1...v0.5.2) (2026-09-24)
 
 

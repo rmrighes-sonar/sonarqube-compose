@@ -1,72 +1,64 @@
 name: CI
 
-# One workflow, one visible pipeline graph: build -> test -> sonarqube.
-# Each stage only runs once the previous one has proven itself, so a broken
-# compose file fails fast in `build` instead of burning time in `test`, and
-# a stack that doesn't actually start never reaches a SonarQube scan.
+# One workflow, one visible pipeline graph:
 #
-# Deliberately NOT using `paths-ignore` on the triggers below to skip
-# release-please's changelog/manifest-only commits, even though that's all
-# they touch: `build`/`test`/`sonarqube` are required status checks in
-# branch protection, and a workflow that never runs at all for a given
-# commit (via paths-ignore) leaves those checks permanently stuck as
-# "Expected" -- GitHub won't let the PR merge, ever, since the check
-# literally never reports. (There's no override for this once
-# enforce_admins is on, as it is here.)
+#   version ──────────────────┐
+#                              v
+#   build -> test ──────────> sonarqube -> release
 #
-# Instead, the `changes` job below always runs (so the checks always get a
-# chance to report) and skips the real work in `build` -- and therefore,
-# via the needs: chain, `test` and `sonarqube` too -- for a release-only
-# diff. A job skipped via `if:` reports conclusion "skipped", which GitHub
-# explicitly treats as passing for required status check purposes (unlike
-# a job that never ran because its whole workflow was filtered out).
+# `version` computes the next semantic version (from Conventional Commits
+# since the last tag, via semantic-release --dry-run) independently/in
+# parallel with build -> test, since it doesn't depend on anything they
+# produce. `sonarqube` is the only job that needs its *output* (to stamp
+# sonar.projectVersion with the version this commit will actually ship as,
+# not a stale already-released one), so it's the only job that lists
+# `version` directly in `needs:` alongside `test` -- both genuinely
+# necessary, unlike the earlier mistake of listing every upstream job on
+# `publish` in the sibling sonarqube-prometheus-exporter repo just for
+# ordering (see that repo's history for the fix).
+#
+# `release` only runs the real (non-dry-run) semantic-release on a `push`
+# to `main`, after `sonarqube` passes -- see README.md's "Releases" section
+# for why every merge to main now gets its own tagged release, and why this
+# replaced release-please's PR-batching model.
 on:
   push:
     branches: [main]
   pull_request:
 
 jobs:
-  changes:
-    # Determines whether this push/PR only touches release-please's
-    # CHANGELOG.md / .release-please-manifest.json -- if so, downstream
-    # jobs skip their real work (see the header note above for why this
-    # exists instead of a simpler paths-ignore).
+  version:
+    # Preview-only: computes the next version without tagging/releasing
+    # anything. Runs on every push and PR so sonarqube always has a
+    # forward-looking version to stamp, not just on release-worthy pushes.
     runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
-      release_only: ${{ steps.check.outputs.release_only }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # semantic-release needs full tag history
 
-      - id: check
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE="${{ github.event.pull_request.base.sha }}"
-          else
-            BASE="${{ github.event.before }}"
-          fi
-          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
-            echo "No usable base commit to diff against (new branch or unavailable history) -- treating as a real change."
-            echo "release_only=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          CHANGED="$(git diff --name-only "$BASE" "${{ github.sha }}")"
-          echo "Changed files vs $BASE:"
-          echo "$CHANGED"
-          if [ -n "$CHANGED" ] && ! grep -qvE '^(CHANGELOG\.md|\.release-please-manifest\.json)$' <<< "$CHANGED"; then
-            echo "-> release-please changelog/manifest-only change, skipping build/test/sonarqube"
-            echo "release_only=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "release_only=false" >> "$GITHUB_OUTPUT"
-          fi
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Install semantic-release
+        # No package.json in this repo -- semantic-release runs fine
+        # without one (see .releaserc.json for its config), so these are
+        # installed ephemerally per-run rather than committing a Node
+        # toolchain into an otherwise Node-free repo.
+        run: npm install --no-save semantic-release conventional-changelog-conventionalcommits
+
+      - name: Compute next version (dry run, no tag/release created)
+        id: version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node .github/semantic-release/print-next-version.mjs >> "$GITHUB_OUTPUT"
 
   build:
-    needs: changes
-    if: needs.changes.outputs.release_only != 'true'
     # Fast, cheap validation that the tracked config is well-formed --
     # fails in seconds instead of waiting on the (much slower) smoke test.
     runs-on: ubuntu-latest
@@ -145,9 +137,9 @@ jobs:
         run: docker compose down -v
 
   sonarqube:
-    needs: test
-    # Requires SONAR_TOKEN (repo secret) and SONAR_HOST_URL (repo variable)
-    # to be set, and the SonarQube server (this repo's own compose stack,
+    needs: [test, version]
+    # Requires SONAR_TOKEN (secret) and SONAR_HOST_URL (variable) to be
+    # set, and the SonarQube server (this repo's own compose stack,
     # tunnelled via ngrok) to be reachable from GitHub-hosted runners at
     # scan time -- see the "GitHub Integration" section of README.md.
     runs-on: ubuntu-latest
@@ -158,21 +150,11 @@ jobs:
         with:
           fetch-depth: 0 # disable shallow clone for better analysis relevancy
 
-      - name: Determine project version
-        # Without an explicit sonar.projectVersion, every analysis records
-        # "not provided" as the version (visible in SonarQube's own
-        # Activity log/API). release-please's manifest is the single
-        # source of truth for "the current released version" -- it's
-        # accurate immediately after a release, and still the most recent
-        # meaningful version for ordinary commits/PRs in between releases.
-        id: version
-        run: echo "value=$(jq -r '.["."]' .release-please-manifest.json)" >> "$GITHUB_OUTPUT"
-
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2 # v7.1.0
         with:
           args: >
-            -Dsonar.projectVersion=${{ steps.version.outputs.value }}
+            -Dsonar.projectVersion=${{ needs.version.outputs.version }}
           # The action defaults to true (skipping GPG verification of the
           # downloaded Sonar Scanner CLI binary, only checksum-verifying
           # it) -- opt in to full signature verification instead.
@@ -180,3 +162,29 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+
+  release:
+    needs: sonarqube
+    # Only cut a real release from main, and only once the quality gate has
+    # passed. `success()` is required explicitly because this if: replaces
+    # (doesn't add to) the default implicit success()-on-needs check.
+    if: github.event_name == 'push' && success()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Install semantic-release
+        run: npm install --no-save semantic-release conventional-changelog-conventionalcommits
+
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
