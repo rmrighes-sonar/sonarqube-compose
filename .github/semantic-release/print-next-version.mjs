@@ -3,41 +3,39 @@
 // commits since the last `vX.Y.Z` tag, WITHOUT creating a tag or GitHub
 // Release (dryRun).
 //
-// Only actually invokes semantic-release on `push` events: its
-// branch-matching check (unrelated to, and not bypassable via, the
-// dryRun/ci options) requires HEAD to genuinely be on a branch listed in
-// .releaserc.json's `branches`. A `push` to `main` really is checked out
-// on refs/heads/main, so this works there without any tricks. A
-// `pull_request` run, however, is always checked out at a detached
-// synthetic merge ref (refs/pull/N/merge) -- semantic-release reads
-// GitHub's own GITHUB_REF env var directly for this (confirmed by testing
-// -- neither `ci: false` nor pointing a local branch literally named
-// `main` at HEAD changes that), so it always refuses to compute anything
-// there, dry run or not.
+// Only ever invoked on `push` events -- see ci.yml's `version` job, which
+// skips this script entirely on `pull_request` (plain-git tag fallback
+// there instead, no Node/npm/semantic-release needed at all): semantic-
+// release's branch-matching check reads GitHub's own GITHUB_REF env var
+// directly and always refuses on a PR's detached synthetic merge ref,
+// confirmed by testing (neither `ci: false` nor a same-named local branch
+// changes that). A `push` to `main` really is checked out on
+// refs/heads/main, so this works here without any tricks.
 //
-// That's fine to just accept rather than work around: SonarQube's
-// PR-analysis mode defines "new code" as "diff vs target branch," not by
-// version, so an approximate version on PR runs doesn't affect
-// correctness -- only the `main` branch's analysis history (which this
-// *does* get exactly right) feeds a "New Code = Previous version" boundary.
-// PR runs fall back to the latest existing tag instead.
+// Deliberately writes to $GITHUB_OUTPUT via fs, not by shell-redirecting
+// this script's stdout: semantic-release's own logger writes its progress
+// lines (e.g. "[semantic-release] > i Running semantic-release version
+// ...") directly to stdout regardless of what this script returns, and
+// GitHub's runner tries to parse *every* line appended to $GITHUB_OUTPUT
+// as a strict key=value pair -- those log lines aren't, so a naive
+// `node script.mjs >> "$GITHUB_OUTPUT"` fails with "Invalid format".
+//
+// Falls back to the latest existing tag (stripped of its `v` prefix) if
+// semantic-release determines no release is warranted for the current
+// HEAD, so sonar.projectVersion always has *something* meaningful rather
+// than an empty string.
 import { execSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import semanticRelease from "semantic-release";
 
-const lastTag = () =>
-  execSync("git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0")
-    .toString()
-    .trim()
-    .replace(/^v/, "");
+const result = await semanticRelease({ dryRun: true });
 
-let version;
-if (process.env.GITHUB_EVENT_NAME === "push") {
-  const result = await semanticRelease({ dryRun: true });
-  version = result ? result.nextRelease.version : lastTag();
-} else {
-  version = lastTag();
-}
+const version = result
+  ? result.nextRelease.version
+  : execSync("git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0")
+      .toString()
+      .trim()
+      .replace(/^v/, "");
 
 appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
 console.log(`Computed next version: ${version}`);

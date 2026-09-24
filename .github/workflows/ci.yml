@@ -36,22 +36,42 @@ jobs:
   version:
     # Preview-only: computes the next version without tagging/releasing
     # anything. Runs on every push and PR so sonarqube always has a
-    # forward-looking version to stamp, not just on release-worthy pushes.
+    # forward-looking version to stamp, not just on release-worthy pushes
+    # -- but only the `push` path actually needs semantic-release itself.
+    # On `pull_request`, semantic-release's branch-matching check can never
+    # pass anyway (it reads GITHUB_REF directly, which is always the
+    # detached synthetic merge ref there, confirmed by testing -- see
+    # README.md's "Releases" section), and an approximate version doesn't
+    # affect correctness for PR analyses (SonarQube defines PR "new code"
+    # as diff-vs-target-branch, not by version). So PRs skip Node/npm/
+    # semantic-release entirely via step-level `if:` and just read the
+    # latest tag with plain git -- no point spinning up a whole JS
+    # toolchain for a value that's discarded before use.
     runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      version: ${{ steps.version.outputs.version || steps.fallback.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # semantic-release needs full tag history
+          fetch-depth: 0 # semantic-release needs full tag history; git describe does too
+
+      - name: Use latest tag (pull_request only)
+        id: fallback
+        if: github.event_name != 'push'
+        run: |
+          set -euo pipefail
+          TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v5
+        if: github.event_name == 'push'
         with:
           node-version: 22
 
       - name: Install semantic-release
+        if: github.event_name == 'push'
         # No package.json in this repo -- semantic-release runs fine
         # without one (see .releaserc.json for its config), so these are
         # installed ephemerally per-run rather than committing a Node
@@ -68,6 +88,7 @@ jobs:
         # otherwise corrupt $GITHUB_OUTPUT if this whole command's output
         # were naively piped into it.
         id: version
+        if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node .github/semantic-release/print-next-version.mjs

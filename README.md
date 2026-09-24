@@ -290,9 +290,17 @@ flowchart LR
   from [Conventional Commits](https://www.conventionalcommits.org/) since
   the last `vX.Y.Z` tag, via `semantic-release --dry-run` (see
   [Releases](#releases) below) -- no tag or release is created yet, this is
-  purely a preview. Runs first, sequentially before `build` -- a deliberate
-  ordering choice, not a data dependency (`build` doesn't consume its
-  output): the version for a commit is settled before anything else about
+  purely a preview. Only actually runs `semantic-release` on `push` --
+  `pull_request` runs skip Node/npm entirely and use the latest existing
+  tag instead, via a plain-git step: semantic-release's branch-matching
+  check reads GitHub's own `GITHUB_REF` directly and can never pass on a
+  PR's detached synthetic merge ref regardless of `dryRun`/`ci` options
+  (confirmed by testing), and an approximate version doesn't affect
+  correctness there anyway -- SonarQube's PR-analysis mode defines "new
+  code" as diff-vs-target-branch, not by version. Runs first, sequentially
+  before `build` -- a deliberate ordering choice, not a data dependency
+  (`build` doesn't consume its output): the version for a commit is
+  settled before anything else about
   it is validated.
 - **`build`** -- fast, cheap validation that the tracked config is
   well-formed: `docker compose config -q` against the base stack and every
