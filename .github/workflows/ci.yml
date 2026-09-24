@@ -53,10 +53,15 @@ jobs:
         run: npm install --no-save semantic-release conventional-changelog-conventionalcommits
 
       - name: Compute next version (dry run, no tag/release created)
+        # Writes to $GITHUB_OUTPUT itself (see the script) rather than via
+        # shell redirection -- semantic-release's own logger writes
+        # non-key=value progress lines straight to stdout, which would
+        # otherwise corrupt $GITHUB_OUTPUT if this whole command's output
+        # were naively piped into it.
         id: version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node .github/semantic-release/print-next-version.mjs >> "$GITHUB_OUTPUT"
+        run: node .github/semantic-release/print-next-version.mjs
 
   build:
     # Fast, cheap validation that the tracked config is well-formed --
