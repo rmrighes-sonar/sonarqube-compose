@@ -213,7 +213,7 @@
           "legendFormat": "{{task_type}}"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 12 } } }
+      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "fillOpacity": 12 } } }
     },
     {
       "id": 17,
@@ -229,7 +229,7 @@
           "instant": true
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "s" } }
+      "fieldConfig": { "defaults": { "unit": "ms" } }
     },
 
     {
