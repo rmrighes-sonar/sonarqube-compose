@@ -77,6 +77,22 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   panels above). Backed entirely by the existing `Prometheus` datasource —
   no extra setup needed beyond the `monitoring` profile.
 
+  **Compute Engine task duration is displayed in milliseconds, not
+  seconds:** despite its name, SonarQube's native
+  `sonarqube_compute_engine_tasks_running_duration_seconds_sum`/`_count`
+  metric actually reports raw millisecond values (confirmed by comparing
+  live query results directly against `ce.log`'s `time=<N>ms` entries for
+  the same task -- e.g. a task logged at `time=83ms` shows as `83` from
+  Prometheus, not `0.083`). The "Avg Compute Engine task duration by type"
+  and "Compute Engine task duration by project" panels set
+  `fieldConfig.defaults.unit` to `"ms"` to match reality, rather than the
+  `"s"` you'd expect from the metric's name -- if you ever change these
+  panels, keep that in mind or durations will render ~1000x too large
+  (e.g. a 5-second task showing as "1.4 hours"). This is specific to this
+  one metric; the Web API v1/v2 and DB query latency panels' `*_duration_seconds`
+  metrics are genuinely in seconds (spot-checked against real request
+  timing) and correctly use `unit: "s"`.
+
   **Troubleshooting "Could not find plugin definition for data source" /
   panels showing the Prometheus datasource as missing:** Grafana's
   background plugin installer re-checks every core-bundled plugin
