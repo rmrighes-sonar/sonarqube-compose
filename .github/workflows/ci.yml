@@ -78,14 +78,16 @@ jobs:
         # (no ^/~ range) and --ignore-scripts: unpinned + script-executing
         # installs of third-party packages both flagged by SonarQube
         # (githubactions:S8543, S6505) as supply-chain risks.
-        run: npm install --no-save --ignore-scripts semantic-release@25.0.9 conventional-changelog-conventionalcommits@10.4.0
+        # conventional-changelog-writer@latest is temporary (see the
+        # diagnostic step below) -- conventional-changelog-conventionalcommits@10.4.0
+        # requires writer@9+, but without an explicit top-level pin, npm
+        # hoisted an older 8.4.0 from somewhere else in the tree (confirmed
+        # by testing: generateNotes failed with "Missing helper... Your
+        # changelog tooling loaded an older writer"). Once the resolved
+        # version is confirmed, pin it exactly in a follow-up commit.
+        run: npm install --no-save --ignore-scripts semantic-release@25.0.9 conventional-changelog-conventionalcommits@10.4.0 conventional-changelog-writer@latest
 
       - name: Print resolved conventional-changelog-writer version
-        # Temporary diagnostic: conventional-changelog-conventionalcommits@10.4.0
-        # requires conventional-changelog-writer@9+, but generateNotes
-        # failed with "Missing helper" -- an older writer got resolved/
-        # hoisted somewhere in the tree. Find the actual version to pin a
-        # compatible one explicitly in a follow-up commit.
         run: node -p "require('./node_modules/conventional-changelog-writer/package.json').version"
 
       - name: Compute next version (dry run, no tag/release created)
@@ -272,7 +274,9 @@ jobs:
           node-version: 22
 
       - name: Install semantic-release
-        run: npm install --no-save --ignore-scripts semantic-release@25.0.9 conventional-changelog-conventionalcommits@10.4.0
+        # conventional-changelog-writer@latest is temporary here too -- see
+        # the matching note in the `version` job above.
+        run: npm install --no-save --ignore-scripts semantic-release@25.0.9 conventional-changelog-conventionalcommits@10.4.0 conventional-changelog-writer@latest
 
       - name: Release
         env:
