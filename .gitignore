@@ -1,2 +1,6 @@
 .env
 backups/
+# ci.yml's version/release jobs install semantic-release ephemerally
+# (npm install --no-save) -- never committed, but ignore it in case anyone
+# runs .github/semantic-release/print-next-version.mjs locally.
+node_modules/
