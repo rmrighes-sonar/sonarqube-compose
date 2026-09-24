@@ -251,8 +251,13 @@ jobs:
           ACTIONLINT_VERSION: "1.7.12"
         run: |
           set -euo pipefail
-          curl -sSLO "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          curl -sSLO "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"
+          # --proto/--proto-redir pin curl to HTTPS only, including across
+          # redirects -- without this, a malicious or compromised redirect
+          # could silently downgrade the download to plain HTTP
+          # (SonarQube githubactions:S6506).
+          CURL_OPTS=(--proto '=https' --proto-redir '=https' -sSLO)
+          curl "${CURL_OPTS[@]}" "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl "${CURL_OPTS[@]}" "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"
           sha256sum --ignore-missing -c "actionlint_${ACTIONLINT_VERSION}_checksums.txt"
           tar xzf "actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" actionlint
 
