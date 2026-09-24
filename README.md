@@ -285,9 +285,14 @@ Actions run page:
 
 ```mermaid
 flowchart LR
-    build[Build] --> test[Test] --> sonar[SonarQube Analysis]
+    changes[Detect changed files] --> build[Build] --> test[Test] --> sonar[SonarQube Analysis]
 ```
 
+- **`changes`** -- always runs first; diffs the push/PR against its base
+  commit to detect whether *only* `CHANGELOG.md` /
+  `.release-please-manifest.json` changed (i.e. this is release-please's own
+  commit). See "Release commits are skipped" below for why this exists as a
+  job instead of a simpler trigger-level filter.
 - **`build`** -- fast, cheap validation that the tracked config is
   well-formed: `docker compose config -q` against the base stack and every
   profile combination (`monitoring`, `share`, `mcp`, all three), `shellcheck`
@@ -304,12 +309,23 @@ flowchart LR
   actually starts a healthy stack. Requires `SONAR_TOKEN` (secret) and
   `SONAR_HOST_URL` (variable) -- see [GitHub Integration](#github-integration).
 
-**Release commits are skipped:** both the `push` and `pull_request`
-triggers set `paths-ignore: [CHANGELOG.md, .release-please-manifest.json]`.
+**Release commits are skipped -- via job-level `if:`, not `paths-ignore`:**
 release-please's Release PRs (and the commit that merges one) only ever
-touch those two files, so this pipeline doesn't re-validate/re-scan
-something that already passed CI moments earlier under the real code
-change -- see [Releases](#releases) below.
+touch `CHANGELOG.md` / `.release-please-manifest.json`, so there's nothing
+new for `build`/`test`/`sonarqube` to validate there -- see
+[Releases](#releases) below. It's tempting to skip this with `paths-ignore`
+on the workflow's triggers, but **don't**: `build`/`test`/`sonarqube` are
+required status checks in branch protection, and a workflow that never runs
+at all for a given commit leaves those checks stuck as "Expected" forever
+-- unmergeable, with no override since `main`'s protection also enforces
+against admins. Instead, `changes` always runs (so the checks always get a
+chance to report), and `build` skips its real work via
+`if: needs.changes.outputs.release_only != 'true'` -- `test` and
+`sonarqube` then skip too automatically, cascading through their `needs:`
+chain (a job's default condition requires its dependencies to have
+succeeded; skipped doesn't count as succeeded). A job skipped via `if:`
+reports conclusion "skipped", which GitHub explicitly treats as passing for
+required status checks -- unlike a check that never ran.
 
 **`main` is protected:** merging requires an open pull request with `build`,
 `test`, and `sonarqube` all green, and direct pushes/force-pushes/deletion

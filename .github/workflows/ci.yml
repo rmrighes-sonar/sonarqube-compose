@@ -5,23 +5,68 @@ name: CI
 # compose file fails fast in `build` instead of burning time in `test`, and
 # a stack that doesn't actually start never reaches a SonarQube scan.
 #
-# paths-ignore skips the whole pipeline for release-please's own commits --
-# its release PRs (and the merge that cuts a release) only ever touch
-# CHANGELOG.md / .release-please-manifest.json, never actual config/code, so
-# there's nothing new here for build/test/sonarqube to validate.
+# Deliberately NOT using `paths-ignore` on the triggers below to skip
+# release-please's changelog/manifest-only commits, even though that's all
+# they touch: `build`/`test`/`sonarqube` are required status checks in
+# branch protection, and a workflow that never runs at all for a given
+# commit (via paths-ignore) leaves those checks permanently stuck as
+# "Expected" -- GitHub won't let the PR merge, ever, since the check
+# literally never reports. (There's no override for this once
+# enforce_admins is on, as it is here.)
+#
+# Instead, the `changes` job below always runs (so the checks always get a
+# chance to report) and skips the real work in `build` -- and therefore,
+# via the needs: chain, `test` and `sonarqube` too -- for a release-only
+# diff. A job skipped via `if:` reports conclusion "skipped", which GitHub
+# explicitly treats as passing for required status check purposes (unlike
+# a job that never ran because its whole workflow was filtered out).
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - CHANGELOG.md
-      - .release-please-manifest.json
   pull_request:
-    paths-ignore:
-      - CHANGELOG.md
-      - .release-please-manifest.json
 
 jobs:
+  changes:
+    # Determines whether this push/PR only touches release-please's
+    # CHANGELOG.md / .release-please-manifest.json -- if so, downstream
+    # jobs skip their real work (see the header note above for why this
+    # exists instead of a simpler paths-ignore).
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      release_only: ${{ steps.check.outputs.release_only }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - id: check
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+            echo "No usable base commit to diff against (new branch or unavailable history) -- treating as a real change."
+            echo "release_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CHANGED="$(git diff --name-only "$BASE" "${{ github.sha }}")"
+          echo "Changed files vs $BASE:"
+          echo "$CHANGED"
+          if [ -n "$CHANGED" ] && ! grep -qvE '^(CHANGELOG\.md|\.release-please-manifest\.json)$' <<< "$CHANGED"; then
+            echo "-> release-please changelog/manifest-only change, skipping build/test/sonarqube"
+            echo "release_only=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_only=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: changes
+    if: needs.changes.outputs.release_only != 'true'
     # Fast, cheap validation that the tracked config is well-formed --
     # fails in seconds instead of waiting on the (much slower) smoke test.
     runs-on: ubuntu-latest
