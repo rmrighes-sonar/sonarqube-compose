@@ -143,6 +143,15 @@ jobs:
 
   test:
     needs: build
+    # Explicit if: checking only build's own result, not the default
+    # implicit success() -- that default checks the *entire* transitive
+    # ancestor chain (including version, several hops back), not just
+    # test's direct needs:. Since version is legitimately skipped on every
+    # pull_request, the default would cascade-skip test (and sonarqube,
+    # and release) even though build itself succeeded -- confirmed by
+    # testing. Restricting the check to build's own result breaks that
+    # unwanted propagation.
+    if: needs.build.result == 'success'
     # Re-exposes build's (pass-through of version's) output the same way,
     # one more hop down the chain -- see the header note above.
     outputs:
@@ -184,6 +193,9 @@ jobs:
 
   sonarqube:
     needs: test
+    # Same reasoning as test's if: above -- restrict to test's own result,
+    # not the transitive-ancestor-checking default success().
+    if: needs.test.result == 'success'
     # Requires SONAR_TOKEN (secret) and SONAR_HOST_URL (variable) to be
     # set, and the SonarQube server (this repo's own compose stack,
     # tunnelled via ngrok) to be reachable from GitHub-hosted runners at
@@ -223,9 +235,13 @@ jobs:
   release:
     needs: sonarqube
     # Only cut a real release from main, and only once the quality gate has
-    # passed. `success()` is required explicitly because this if: replaces
-    # (doesn't add to) the default implicit success()-on-needs check.
-    if: github.event_name == 'push' && success()
+    # passed. Checks needs.sonarqube.result directly rather than the bare
+    # success() function -- success() with no arguments checks the entire
+    # transitive ancestor chain (including version, which is legitimately
+    # skipped on every pull_request -- moot here since this is already
+    # push-gated, but kept consistent with test/sonarqube's fix above and
+    # explicit about exactly what's being checked).
+    if: github.event_name == 'push' && needs.sonarqube.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
