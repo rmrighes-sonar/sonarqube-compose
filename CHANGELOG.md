@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.5.1...v0.5.2) (2026-09-24)
+
+
+### Performance Improvements
+
+* **sonarqube:** right-size Web/CE/Search JVM heaps to fit container limit ([#19](https://github.com/rmrighes-sonar/sonarqube-compose/issues/19)) ([bc86285](https://github.com/rmrighes-sonar/sonarqube-compose/commit/bc8628549b7dbf5c938b04231f11a1ed817935d0))
+
 ## [0.5.1](https://github.com/rmrighes-sonar/sonarqube-compose/compare/v0.5.0...v0.5.1) (2026-09-22)
 
 
