@@ -41,6 +41,17 @@ jobs:
         with:
           fetch-depth: 0 # semantic-release needs full tag history
 
+      - name: Point a local "main" branch at this commit
+        # On pull_request events, actions/checkout leaves HEAD detached at
+        # the synthetic merge ref (refs/pull/N/merge). semantic-release's
+        # ci:false mode (below) bypasses its GitHub-Actions-aware branch
+        # detection entirely and falls back to plain git, which then
+        # reports that detached ref name literally -- failing its
+        # configured-branches check ("main") regardless of dryRun. Making
+        # a local branch actually named `main` point at HEAD satisfies
+        # that check without touching anything remote.
+        run: git checkout -B main
+
       - uses: actions/setup-node@v5
         with:
           node-version: 22
