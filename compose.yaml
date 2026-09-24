@@ -219,10 +219,16 @@ services:
     # Replicates the image's default CMD and adds a size-based retention cap
     # so prometheus_data can't grow unbounded on the shared Docker Desktop
     # VM disk -- unset, Prometheus defaults to 15 days of *unbounded* size.
+    # 512MB here means MiB (1024*1024 bytes) -- Prometheus's unit suffixes
+    # are binary despite the decimal-looking names. Lowered from 1GB with
+    # the actual prometheus_data volume sitting at ~50MB at the time, so
+    # this cap change alone doesn't force Prometheus to delete anything;
+    # it only takes effect (deleting oldest blocks first) if usage ever
+    # grows past 512MB in the future.
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
-      - "--storage.tsdb.retention.size=1GB"
+      - "--storage.tsdb.retention.size=512MB"
       - "--web.console.libraries=/usr/share/prometheus/console_libraries"
       - "--web.console.templates=/usr/share/prometheus/consoles"
     volumes:
