@@ -2,7 +2,7 @@
   "title": "SonarQube Server Health",
   "uid": "sonarqube-health",
   "schemaVersion": 39,
-  "version": 9,
+  "version": 11,
   "tags": ["sonarqube", "health"],
   "time": { "from": "now-6h", "to": "now" },
   "panels": [
@@ -32,7 +32,7 @@
     },
     {
       "id": 3,
-      "title": "Web process",
+      "title": "Web Server",
       "type": "stat",
       "gridPos": { "h": 5, "w": 5, "x": 4, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -64,7 +64,7 @@
     },
     {
       "id": 5,
-      "title": "Elasticsearch",
+      "title": "Search Engine",
       "type": "stat",
       "gridPos": { "h": 5, "w": 5, "x": 14, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -348,7 +348,7 @@
       "fieldConfig": {
         "defaults": {
           "mappings": [
-            { "type": "value", "options": { "0": { "text": "Not configured / red", "color": "red" }, "1": { "text": "Green", "color": "green" } } }
+            { "type": "value", "options": { "0": { "text": "Invalid / Not configured", "color": "red" }, "1": { "text": "Valid", "color": "green" } } }
           ]
         }
       }
@@ -364,7 +364,7 @@
       "fieldConfig": {
         "defaults": {
           "mappings": [
-            { "type": "value", "options": { "0": { "text": "Not configured / red", "color": "red" }, "1": { "text": "Green", "color": "green" } } }
+            { "type": "value", "options": { "0": { "text": "Invalid / Not configured", "color": "red" }, "1": { "text": "Valid", "color": "green" } } }
           ]
         }
       }
@@ -380,7 +380,7 @@
       "fieldConfig": {
         "defaults": {
           "mappings": [
-            { "type": "value", "options": { "0": { "text": "Not configured / red", "color": "red" }, "1": { "text": "Green", "color": "green" } } }
+            { "type": "value", "options": { "0": { "text": "Invalid / Not configured", "color": "red" }, "1": { "text": "Valid", "color": "green" } } }
           ]
         }
       }
@@ -396,7 +396,7 @@
       "fieldConfig": {
         "defaults": {
           "mappings": [
-            { "type": "value", "options": { "0": { "text": "Not configured / red", "color": "red" }, "1": { "text": "Green", "color": "green" } } }
+            { "type": "value", "options": { "0": { "text": "Invalid / Not configured", "color": "red" }, "1": { "text": "Valid", "color": "green" } } }
           ]
         }
       }
