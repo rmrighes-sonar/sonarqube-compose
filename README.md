@@ -83,8 +83,8 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   metric actually reports raw millisecond values (confirmed by comparing
   live query results directly against `ce.log`'s `time=<N>ms` entries for
   the same task -- e.g. a task logged at `time=83ms` shows as `83` from
-  Prometheus, not `0.083`). The "Avg Compute Engine task duration by type"
-  and "Compute Engine task duration by project" panels set
+  Prometheus, not `0.083`). The "Most Recent Compute Engine Task Duration
+  by Type" and "Compute Engine task duration by project" panels set
   `fieldConfig.defaults.unit` to `"ms"` to match reality, rather than the
   `"s"` you'd expect from the metric's name -- if you ever change these
   panels, keep that in mind or durations will render ~1000x too large
@@ -105,11 +105,28 @@ Grafana (`monitoring` profile) is pre-provisioned with two dashboards in a
   cumulative counters directly (`sum by (...) (..._sum) / sum by (...)
   (..._count)`, no time window at all) -- the lifetime average duration
   per project/type, which stays populated as soon as at least one task has
-  ever completed instead of flickering to zero between runs. The
-  "Avg Compute Engine task duration by type" timeseries panel still uses
-  the `rate()`-based version deliberately -- occasional dips toward zero
-  read naturally on a time-series graph of a rolling rate, unlike blank
-  rows in a comparison table.
+  ever completed instead of flickering to zero between runs.
+
+  **"Most Recent Compute Engine Task Duration by Type"** (the sibling
+  timeseries panel, deliberately *not* titled "Avg..."): still uses the
+  same `rate(..._sum[5m]) / rate(..._count[5m])` expression, but that
+  expression doesn't behave like an average here either -- CE tasks
+  complete every several minutes at best in this environment, so a
+  5-minute window almost never contains more than one completed task.
+  When it contains zero, both rates are `0` and Prometheus emits an
+  explicit `NaN` (confirmed live) rather than `0`, which Grafana renders
+  as a genuine gap in the line, not a dip -- so most of the time, for any
+  project/type combination that hasn't just finished a task, there's
+  simply no line being drawn at all. When the window *does* contain
+  exactly one event, the expression reduces to approximately that single
+  task's real duration (verified against `ce.log`'s own `time=<N>ms` for
+  the same task, ~0.06% apart) -- i.e. this panel is really "the last
+  task's duration, plotted intermittently," not an average of multiple
+  observations, hence the honest title. `fieldConfig.defaults.custom.spanNulls: true`
+  connects those `NaN` gaps into a continuous line (holding/interpolating
+  the last known value) purely for visual continuity -- be aware a long
+  flat stretch on this graph can mean "genuinely idle," not "steady
+  duration," since it's drawn across gaps with no real data underneath.
 
   **Troubleshooting "Could not find plugin definition for data source" /
   panels showing the Prometheus datasource as missing:** Grafana's

@@ -202,7 +202,7 @@
     },
     {
       "id": 16,
-      "title": "Avg Compute Engine task duration by type",
+      "title": "Most Recent Compute Engine Task Duration by Type",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 22 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -213,7 +213,7 @@
           "legendFormat": "{{task_type}}"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "fillOpacity": 12 } } }
+      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "fillOpacity": 12, "spanNulls": true } } }
     },
     {
       "id": 17,
